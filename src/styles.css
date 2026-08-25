@@ -1,0 +1,204 @@
+/* SAC — Grupo Presença
+   Camada de estilo própria. O Tailwind entra pelo index.html (mesma abordagem da v1),
+   este arquivo cuida do tema escuro, dos cards, tabelas e animações. */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body { font-family: 'Inter', sans-serif; }
+.code-font { font-family: 'Fira Code', monospace; }
+::-webkit-scrollbar { height: 10px; width: 8px; }
+::-webkit-scrollbar-track { background: #f1f5f4; }
+::-webkit-scrollbar-thumb { background: #d4d4d4; border-radius: 4px; }
+select, input, textarea { transition: border-color .15s ease; }
+select:focus, input:focus, textarea:focus { outline: none; border-color: #E35205; box-shadow: 0 0 0 3px rgba(227,82,5,.12); }
+.logo-presenca { font-family: 'Poppins', 'Inter', sans-serif; font-weight: 800; letter-spacing: -0.01em; }
+.icon-btn { position: relative; }
+.icon-btn::after {
+    content: attr(data-tooltip);
+    position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    background: #1c1917; color: #fff; font-size: 12px; font-weight: 600;
+    padding: 6px 10px; border-radius: 8px; white-space: nowrap;
+    opacity: 0; pointer-events: none; transition: opacity .12s ease;
+    z-index: 30;
+}
+.icon-btn::before {
+    content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-bottom-color: #1c1917;
+    opacity: 0; pointer-events: none; transition: opacity .12s ease; z-index: 30;
+}
+.icon-btn:hover::after, .icon-btn:hover::before { opacity: 1; }
+.spin { animation: spin .8s linear infinite; }
+.pizza-wrap { position: relative; }
+.pizza-svg { animation: pizzaEntra .55s cubic-bezier(.22,1,.36,1); }
+@keyframes pizzaEntra { from { opacity: 0; transform: rotate(-14deg) scale(.88); } to { opacity: 1; transform: none; } }
+.fatia-pizza { transition: opacity .18s ease, transform .18s ease; transform-origin: 110px 110px; cursor: pointer; }
+.pizza-svg.tem-hover .fatia-pizza { opacity: .25; }
+.pizza-svg .fatia-pizza.ativa { opacity: 1; transform: scale(1.05); }
+.linha-legenda { border-radius: 8px; cursor: pointer; transition: background .15s ease; }
+.linha-legenda:hover, .linha-legenda.ativa { background: #fafaf9; }
+.pizza-tip { position: absolute; left: 0; top: 0; z-index: 40; pointer-events: none; opacity: 0; transition: opacity .16s ease, transform .16s ease; transform: translate(14px, -50%) scale(.94); }
+.pizza-tip.visivel { opacity: 1; transform: translate(22px, -50%) scale(1); }
+.pizza-tip.esquerda { transform: translate(calc(-100% - 14px), -50%) scale(.94); }
+.pizza-tip.esquerda.visivel { transform: translate(calc(-100% - 22px), -50%) scale(1); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============ CAMADA DE DESIGN: CARDS, TABELAS E INTERAÇÕES ============ */
+:root { --marca: #E35205; }
+
+@keyframes subir { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes crescerBarra { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+/* fill "backwards": a animação prepara o estado inicial, mas NÃO segura o transform
+   depois de terminar — senão ela venceria o :hover na cascata */
+.anima-entrada { animation: subir .42s cubic-bezier(.22,1,.36,1) backwards; }
+
+/* --- Card base --- */
+.card {
+    position: relative;
+    border-radius: 16px;
+    transition: transform .24s cubic-bezier(.22,1,.36,1), box-shadow .24s ease, border-color .24s ease;
+}
+.card::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    opacity: 0; transition: opacity .24s ease;
+    box-shadow: 0 0 0 1px rgba(227,82,5,.30), 0 22px 44px -24px rgba(227,82,5,.55);
+}
+.card:hover { transform: translateY(-3px); }
+.card:hover::after { opacity: 1; }
+html.dark .card::after { box-shadow: 0 0 0 1px rgba(227,82,5,.45), 0 22px 44px -20px rgba(0,0,0,.8); }
+
+/* --- modo claro: movimento e sombra mais perceptíveis --- */
+html:not(.dark) .card:hover { transform: translateY(-6px) scale(1.012); }
+html:not(.dark) .card::after {
+    box-shadow: 0 0 0 1.5px var(--kpi-cor, rgba(227,82,5,.55)),
+                0 28px 52px -22px rgba(15,23,42,.35),
+                0 10px 20px -14px var(--kpi-cor, rgba(227,82,5,.5));
+}
+html:not(.dark) .kpi:hover { background-color: #fffcfa; }
+html:not(.dark) .kpi::before { width: 4px; }
+html:not(.dark) .tabela-moderna tbody tr:hover { background: rgba(227,82,5,.05); }
+html:not(.dark) .card-chamado:hover { box-shadow: 0 20px 36px -24px rgba(227,82,5,.65); }
+html:not(.dark) .linha-barra:hover { background: rgba(227,82,5,.08); }
+
+/* --- KPI --- */
+.kpi { overflow: hidden; --kpi-cor: var(--marca); }
+.kpi::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--kpi-cor); border-radius: 16px 0 0 16px;
+    transform: scaleY(0); transform-origin: 50% 100%;
+    transition: transform .3s cubic-bezier(.22,1,.36,1);
+}
+.kpi:hover::before, .kpi.ativo::before { transform: scaleY(1); }
+.kpi .kpi-valor { display: inline-block; transition: transform .24s cubic-bezier(.22,1,.36,1); }
+.kpi:hover .kpi-valor { transform: scale(1.07); }
+.kpi .kpi-rotulo {
+    font-size: 11px; line-height: 1.15; letter-spacing: .07em;
+    min-height: 26px; display: block;
+    transition: color .2s ease;
+}
+.kpi:hover .kpi-rotulo { color: var(--kpi-cor); }
+.kpi-rodape { min-height: 15px; }   /* espaço reservado: a dica não empurra nem cobre nada */
+
+/* --- KPI clicável (filtro rápido) --- */
+.kpi-filtro { cursor: pointer; user-select: none; }
+.kpi-filtro:active { transform: translateY(-1px) scale(.99); }
+.kpi-filtro.ativo {
+    border-color: transparent !important;
+    box-shadow: 0 0 0 2px var(--kpi-cor), 0 16px 34px -22px var(--kpi-cor);
+}
+.kpi-filtro.ativo .kpi-rotulo { color: var(--kpi-cor); }
+.kpi-dica {
+    font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    white-space: nowrap;
+    opacity: 0; transform: translateX(-4px);
+    transition: opacity .22s ease, transform .22s ease;
+}
+.kpi-filtro:hover .kpi-dica, .kpi-filtro.ativo .kpi-dica { opacity: 1; transform: none; }
+
+/* --- Barras dos gráficos --- */
+.linha-barra { border-radius: 10px; padding: 2px 4px; margin: 0 -4px; transition: background .18s ease; }
+.linha-barra:hover { background: rgba(227,82,5,.05); }
+html.dark .linha-barra:hover { background: rgba(227,82,5,.10); }
+.barra-fill { transform-origin: left center; animation: crescerBarra .6s cubic-bezier(.22,1,.36,1) backwards; transition: filter .2s ease; }
+.linha-barra:hover .barra-fill { filter: brightness(1.15) saturate(1.15); }
+.linha-barra:hover .barra-rotulo { color: var(--marca); }
+.barra-rotulo { transition: color .18s ease; }
+
+/* --- Tabelas --- */
+.tabela-moderna { border-collapse: separate; border-spacing: 0; }
+.tabela-moderna thead th { font-size: 11px; letter-spacing: .08em; }
+.tabela-moderna tbody tr { transition: background .2s ease, box-shadow .2s ease; }
+.tabela-moderna tbody tr td { transition: transform .2s cubic-bezier(.22,1,.36,1); }
+
+/* --- Card de chamado na fila --- */
+.card-chamado { transition: transform .2s cubic-bezier(.22,1,.36,1), box-shadow .2s ease, border-color .2s ease; }
+.card-chamado:hover { transform: translateX(4px); box-shadow: 0 16px 30px -22px rgba(0,0,0,.5); }
+html.dark .card-chamado:hover { box-shadow: 0 16px 30px -18px rgba(0,0,0,.9); }
+
+/* --- Toque: sem hover preso, com feedback ao tocar --- */
+@media (hover: hover) and (pointer: fine) {
+    .tabela-moderna tbody tr:hover { background: rgba(227,82,5,.05); box-shadow: inset 2px 0 0 var(--marca); }
+    .tabela-moderna tbody tr:hover td { transform: translateX(2px); }
+    html.dark .tabela-moderna tbody tr:hover { background: rgba(227,82,5,.10); }
+}
+@media (hover: none) {
+    .card:hover, html:not(.dark) .card:hover { transform: none; }
+    .card:active { transform: scale(.985); }
+    .card::after { display: none; }
+    .kpi-filtro .kpi-dica { opacity: 1; transform: none; }      /* no celular a dica fica sempre visível */
+    .card-chamado:active { background: rgba(227,82,5,.06); }
+    .tabela-moderna tbody tr:active { background: rgba(227,82,5,.08); }
+}
+
+/* --- Responsivo --- */
+.tabela-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.tabela-scroll::-webkit-scrollbar { height: 6px; }
+@media (max-width: 900px) {
+    .tabela-moderna { min-width: 720px; }
+    .kpi .kpi-rotulo { min-height: 24px; font-size: 10px; }
+    .kpi-rodape { min-height: 13px; }
+}
+@media (max-width: 640px) {
+    .card { border-radius: 14px; }
+    .kpi-dica { font-size: 9px; letter-spacing: .06em; }
+}
+
+/* --- Caixa única de período --- */
+.campo-periodo { transition: border-color .15s ease, box-shadow .15s ease; }
+.campo-periodo:focus-within { border-color: var(--marca); box-shadow: 0 0 0 3px rgba(227,82,5,.12); }
+.campo-periodo input[type="date"] { border: 0; padding: 0; background: transparent; outline: none; color: inherit; }
+.campo-periodo input[type="date"]:focus { border: 0; box-shadow: none; }
+html.dark .campo-periodo input[type="date"] { background: transparent !important; border: 0 !important; }
+@media (max-width: 400px) {
+    .campo-periodo { flex-wrap: wrap; }
+    .campo-periodo > div:nth-child(2) { display: none; }
+}
+
+/* --- Chips e badges --- */
+.chip-filtro { transition: transform .18s ease, background .18s ease, color .18s ease; }
+.chip-filtro:hover { transform: translateY(-1px); }
+.badge-sla { white-space: nowrap; letter-spacing: .01em; }
+
+/* ===== MODO NOTURNO (tom azul-marinho, igual ao portal) ===== */
+html.dark body { background-color: #0a0e1a; }
+html.dark .bg-stone-50 { background-color: #0a0e1a !important; }
+html.dark .bg-white { background-color: #131a2c !important; }
+html.dark .bg-stone-100 { background-color: #1b2338 !important; }
+html.dark .bg-stone-100\/50, html.dark .bg-stone-50\/50 { background-color: #131a2c !important; }
+html.dark .border-stone-100 { border-color: #232b42 !important; }
+html.dark .border-stone-200 { border-color: #2a3350 !important; }
+html.dark .border-l-green-500 { border-left-color: #22c55e !important; }
+html.dark .border-l-red-500 { border-left-color: #ef4444 !important; }
+html.dark .ring-white { --tw-ring-color: #131a2c !important; }
+html.dark .border-stone-300 { border-color: #2a3350 !important; }
+html.dark .bg-stone-200 { background-color: #2a3350 !important; }
+html.dark .text-stone-900 { color: #f8fafc !important; }
+html.dark .text-stone-800 { color: #f1f5f9 !important; }
+html.dark .text-stone-700 { color: #e2e8f0 !important; }
+html.dark .text-stone-600 { color: #cbd5e1 !important; }
+html.dark .text-stone-500 { color: #94a3b8 !important; }
+html.dark .text-stone-400 { color: #64748b !important; }
+html.dark input, html.dark select, html.dark textarea { background-color: #131a2c !important; color: #f1f5f9 !important; border-color: #2a3350 !important; }
+html.dark ::-webkit-scrollbar-track { background: #131a2c; }
+html.dark .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0,0,0,.4) !important; }
