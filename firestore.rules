@@ -1,0 +1,18 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Coleção usada pelo sistema de chamados SAC.
+    // O app trava o acesso pelo token da API da Presença (nenhum dado é lido sem sessão válida),
+    // mas o Firestore em si ainda aceita a chave pública do projeto.
+    // Reforço recomendado: ativar o App Check no console do Firebase.
+    match /reclamacoes/{documento} {
+      allow read, write: if true;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
