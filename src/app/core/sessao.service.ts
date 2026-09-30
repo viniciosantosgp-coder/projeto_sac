@@ -2,7 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ApiService } from './api.service';
 import { Usuario } from './modelos';
-import { API_ROTA_SESSAO, USUARIOS_VISAO_GERAL } from './constantes';
+import { API_ROTA_SESSAO, FIREBASE_CONFIG, USUARIOS_VISAO_GERAL } from './constantes';
 
 const CHAVE_CACHE = 'sac_auth';
 const INTERVALO_REVALIDACAO_MS = 5 * 60 * 1000;
@@ -21,15 +21,32 @@ export class SessaoService {
   readonly autenticado = computed(() => !!this.token() && !!this.usuario());
   readonly aviso = signal<string>('');
 
+  /** Liberações feitas pelo banco (Firestore: configuracoes/permissoesSac, campo `lista`). */
+  readonly permissoesExtras = signal<string[]>([]);
+
   readonly temVisaoGeral = computed(() => {
     const u = this.usuario();
     const nome = String(u?.nome || '').trim().toLowerCase();
     const login = String(u?.login || '').trim().toLowerCase();
-    return USUARIOS_VISAO_GERAL.some(x => {
-      const alvo = x.trim().toLowerCase();
+    return [...USUARIOS_VISAO_GERAL, ...this.permissoesExtras()].some(x => {
+      const alvo = String(x).trim().toLowerCase();
       return alvo === nome || alvo === login;
     });
   });
+
+  /** Dá acesso ao Dashboard sem precisar publicar código: basta incluir o nome/login na lista do Firestore. */
+  private async carregarPermissoesExtras(): Promise<void> {
+    try {
+      const { initializeApp, getApps, getApp } = await import('firebase/app');
+      const { doc, getDoc, getFirestore } = await import('firebase/firestore');
+      const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
+      const snap = await getDoc(doc(getFirestore(app), 'configuracoes', 'permissoesSac'));
+      const lista = snap.exists() ? snap.data()?.['lista'] : [];
+      this.permissoesExtras.set(Array.isArray(lista) ? lista.map(String) : []);
+    } catch (e) {
+      console.warn('Falha ao carregar permissões extras do Firestore:', (e as Error).message);
+    }
+  }
 
   private ultimaValidacao = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -81,6 +98,7 @@ export class SessaoService {
     this.token.set(cache.token);
     this.usuario.set(cache.usuario);
     this.iniciarVigia();
+    this.carregarPermissoesExtras();
     return true;
   }
 
@@ -94,6 +112,7 @@ export class SessaoService {
       this.salvarCache();
       this.aviso.set('');
       this.iniciarVigia();
+      this.carregarPermissoesExtras();
       return { ok: true };
     } catch {
       return { ok: false, erro: 'Erro de rede/CORS ao tentar logar.' };
@@ -136,6 +155,7 @@ export class SessaoService {
     localStorage.removeItem(CHAVE_CACHE);
     this.token.set(null);
     this.usuario.set(null);
+    this.permissoesExtras.set([]);
     this.ultimaValidacao = 0;
     if (this.timer) { clearInterval(this.timer); this.timer = null; }
     this.aviso.set(

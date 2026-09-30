@@ -11,6 +11,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Configurações lidas pelo app (ex.: configuracoes/permissoesSac). Edição só pelo console.
+    match /configuracoes/{documento} {
+      allow read: if true;
+    }
+
     // Anotações pessoais ("Minhas notas"), mesma política da coleção acima.
     match /notas_sac/{documento} {
       allow read, write: if true;
