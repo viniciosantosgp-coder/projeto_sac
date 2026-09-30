@@ -1,7 +1,7 @@
 import { Chamado } from './modelos';
 import {
   chamadoAberto, chamadoResolvido, diasRestantesSla, duracaoDiasChamado,
-  historicoDe, idadeDiasSac, rotuloStatus, slaDiasPara, slaEstourado, statusChamado
+  historicoDe, idadeDiasSac, rotuloStatus, slaDiasPara, slaEstourado, slaVencimento, statusChamado
 } from './dominio';
 
 export interface EstatisticaAtendente {
@@ -157,6 +157,46 @@ export function apurarSlaPorGravidade(registros: Chamado[]): SlaPorGravidade[] {
       percCumprimento: it.total ? it.dentro / it.total : 0,
       tempoMedio: duracoes.length ? duracoes.reduce((a, b) => a + b, 0) / duracoes.length : null
     }));
+}
+
+/** Uma linha do quadro "Chamados com SLA estourado". */
+export interface LinhaSlaEstourado {
+  chamado: Chamado;
+  venceuEm: Date | null;
+  /** Quando saiu de "Aberto" para "Em tratativa" ('' = não registrado). */
+  tratativaEm: string;
+  tratativaPor: string;
+  resolvidoEm: string;
+  resolvidoPor: string;
+  resolvido: boolean;
+  /** Dias além do prazo (congela no fechamento para os resolvidos). */
+  atrasoDias: number;
+  /** A tratativa começou depois do vencimento? null = sem data de tratativa. */
+  tratativaAposVencer: boolean | null;
+}
+
+/**
+ * Chamados que estouraram o SLA, em aberto ou já resolvidos, com a trilha de
+ * quando foram tratados e quando foram sanados. Em aberto primeiro, maior atraso primeiro.
+ */
+export function listarSlaEstourado(registros: Chamado[]): LinhaSlaEstourado[] {
+  return registros.filter(slaEstourado).map((r): LinhaSlaEstourado => {
+    // registros antigos podem não ter o campo gravado; o histórico ainda pode ter o evento
+    const evTratativa = historicoDe(r).find(ev => ev.de === 'Aberto' && ev.para === 'Pendente');
+    const tratativaEm = r.tratativaIniciadaEm || evTratativa?.em || '';
+    const venceuEm = slaVencimento(r);
+    return {
+      chamado: r,
+      venceuEm,
+      tratativaEm,
+      tratativaPor: r.tratativaPor || evTratativa?.por || '',
+      resolvidoEm: chamadoResolvido(r) ? r.resolvidoEm : '',
+      resolvidoPor: chamadoResolvido(r) ? (r.resolvidoPor || '') : '',
+      resolvido: chamadoResolvido(r),
+      atrasoDias: -(diasRestantesSla(r) ?? 0),
+      tratativaAposVencer: tratativaEm && venceuEm ? new Date(tratativaEm).getTime() > venceuEm.getTime() : null
+    };
+  }).sort((a, b) => Number(a.resolvido) - Number(b.resolvido) || b.atrasoDias - a.atrasoDias);
 }
 
 export function resumoPeriodo(registros: Chamado[]) {

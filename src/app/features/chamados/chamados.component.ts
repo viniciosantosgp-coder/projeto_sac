@@ -12,6 +12,8 @@ import {
 import { SAC_CORES_GRAVIDADE, SAC_PRODUTOS, SAC_STATUS_CORES } from '../../core/constantes';
 import { NovoChamadoComponent } from './novo-chamado.component';
 import { DetalheChamadoComponent } from './detalhe-chamado.component';
+import { NotasPainelComponent } from './notas-painel.component';
+import { NotasService } from '../../core/notas.service';
 
 type ChaveFiltro = '' | 'abertos' | 'tratativa' | 'sla' | 'resolvidos';
 
@@ -22,17 +24,26 @@ interface CardFiltro {
 @Component({
   selector: 'app-chamados',
   standalone: true,
-  imports: [FormsModule, DatePipe, NovoChamadoComponent, DetalheChamadoComponent],
+  imports: [FormsModule, DatePipe, NovoChamadoComponent, DetalheChamadoComponent, NotasPainelComponent],
   template: `
     <div class="flex items-center justify-between flex-wrap gap-4 mb-6">
       <div>
         <h1 class="text-2xl font-extrabold text-stone-900 tracking-tight">Chamados SAC</h1>
         <p class="text-stone-500 text-sm mt-1">Registro e acompanhamento de reclamações — FGTS, Consignado Privado, INSS, SIAPE, Convênios, Pacote de Benefícios.</p>
       </div>
-      <button (click)="modalNovo.set(true)" class="inline-flex items-center gap-2 px-4 py-2 bg-[#E35205] hover:bg-[#c44503] text-white rounded-lg text-sm font-semibold transition-colors">
-        <svg width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg>
-        Novo chamado
-      </button>
+      <div class="flex items-center gap-2">
+        <button (click)="modalNotas.set(true)" class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 rounded-lg text-sm font-semibold transition-colors">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34ZM160,51.31,188.69,80H160ZM200,216H56V40h88V88a8,8,0,0,0,8,8h48V216Z"/></svg>
+          Notas
+          @if (minhasNotas().length > 0) {
+            <span class="bg-stone-100 text-stone-500 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{{ minhasNotas().length }}</span>
+          }
+        </button>
+        <button (click)="modalNovo.set(true)" class="inline-flex items-center gap-2 px-4 py-2 bg-[#E35205] hover:bg-[#c44503] text-white rounded-lg text-sm font-semibold transition-colors">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg>
+          Novo chamado
+        </button>
+      </div>
     </div>
 
     <!-- Filtros -->
@@ -225,17 +236,28 @@ interface CardFiltro {
     @if (detalhe(); as d) {
       <app-detalhe-chamado [chamado]="d" (fechar)="detalhe.set(null)" (atualizado)="recarregar()" />
     }
+    @if (modalNotas()) {
+      <app-notas-painel (fechar)="modalNotas.set(false)" />
+    }
   `
 })
 export class ChamadosComponent {
   readonly servico = inject(ChamadosService);
   readonly sessao = inject(SessaoService);
+  private notasService = inject(NotasService);
   private rota = inject(ActivatedRoute);
   private router = inject(Router);
+
+  /** Contador do botão "Notas". */
+  readonly minhasNotas = computed(() => {
+    const eu = this.sessao.nomeUsuario();
+    return this.notasService.notas().filter(n => n.criadoPor === eu);
+  });
 
   readonly produtos = SAC_PRODUTOS;
   readonly carregando = signal(true);
   readonly modalNovo = signal(false);
+  readonly modalNotas = signal(false);
   readonly detalhe = signal<Chamado | null>(null);
   readonly filtroRapido = signal<ChaveFiltro>('');
 
@@ -264,6 +286,7 @@ export class ChamadosComponent {
     const f = this.rota.snapshot.queryParamMap.get('filtro') as ChaveFiltro | null;
     if (f && f in this.testes) this.filtroRapido.set(f);
     this.recarregar();
+    this.notasService.carregar();
   }
 
   private hoje(): string { return new Date().toISOString().slice(0, 10); }

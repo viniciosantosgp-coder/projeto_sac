@@ -11,6 +11,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Anotações pessoais ("Minhas notas"), mesma política da coleção acima.
+    match /notas_sac/{documento} {
+      allow read, write: if true;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
