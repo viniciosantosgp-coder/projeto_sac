@@ -171,6 +171,10 @@ export interface LinhaSlaEstourado {
   resolvido: boolean;
   /** Dias além do prazo (congela no fechamento para os resolvidos). */
   atrasoDias: number;
+  /** Da abertura até a resolução (null enquanto não resolvido). */
+  duracaoDias: number | null;
+  /** Prazo do SLA em dias (pela gravidade). */
+  prazoDias: number;
   /** A tratativa começou depois do vencimento? null = sem data de tratativa. */
   tratativaAposVencer: boolean | null;
 }
@@ -194,6 +198,8 @@ export function listarSlaEstourado(registros: Chamado[]): LinhaSlaEstourado[] {
       resolvidoPor: chamadoResolvido(r) ? (r.resolvidoPor || '') : '',
       resolvido: chamadoResolvido(r),
       atrasoDias: -(diasRestantesSla(r) ?? 0),
+      duracaoDias: duracaoDiasChamado(r),
+      prazoDias: slaDiasPara(r),
       tratativaAposVencer: tratativaEm && venceuEm ? new Date(tratativaEm).getTime() > venceuEm.getTime() : null
     };
   }).sort((a, b) => Number(a.resolvido) - Number(b.resolvido) || b.atrasoDias - a.atrasoDias);

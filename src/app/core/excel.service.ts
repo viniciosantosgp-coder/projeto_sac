@@ -478,10 +478,11 @@ export class ExcelService {
     const ws = wb.addWorksheet('SLA estourado');
     ws.properties.tabColor = { argb: 'FFDC2626' };
     const colunas = ['ID', 'Proposta', 'CPF', 'Produto', 'Gravidade', 'Aberto em', 'Venceu em',
-      'Tratativa iniciada em', 'Tratativa por', 'Resolvido em', 'Resolvido por', 'Atraso (dias)', 'Situação'];
+      'Tratativa iniciada em', 'Tratativa por', 'Resolvido em', 'Resolvido por', 'Prazo SLA (dias)',
+      'Tempo total (dias)', 'Atraso (dias)', 'Situação'];
     ws.columns = [
       { width: 9 }, { width: 14 }, { width: 16 }, { width: 22 }, { width: 12 }, { width: 18 }, { width: 18 },
-      { width: 20 }, { width: 26 }, { width: 18 }, { width: 26 }, { width: 13 }, { width: 24 }
+      { width: 20 }, { width: 26 }, { width: 18 }, { width: 26 }, { width: 15 }, { width: 17 }, { width: 13 }, { width: 24 }
     ];
     this.cabecalho(ws, 1, colunas);
     ws.views = [{ state: 'frozen', ySplit: 1 }];
@@ -501,12 +502,14 @@ export class ExcelService {
         l.tratativaPor || '',
         l.resolvidoEm ? new Date(l.resolvidoEm) : '—',
         l.resolvidoPor || '',
+        l.prazoDias,
+        l.duracaoDias != null ? Number(l.duracaoDias.toFixed(1)) : '—',
         Number(l.atrasoDias.toFixed(1)),
         l.resolvido ? 'Resolvido com atraso' : 'Em aberto, atrasado'
       ];
       [6, 7, 8, 10].forEach(c => row.getCell(c).numFmt = 'dd/mm/yyyy hh:mm');
-      [1, 5, 12].forEach(c => row.getCell(c).alignment = { horizontal: 'center' });
-      row.getCell(13).font = { bold: true, color: { argb: l.resolvido ? 'FF15803D' : 'FFDC2626' } };
+      [1, 5, 12, 13, 14].forEach(c => row.getCell(c).alignment = { horizontal: 'center' });
+      row.getCell(15).font = { bold: true, color: { argb: l.resolvido ? 'FF15803D' : 'FFDC2626' } };
       if (i % 2 === 1) this.zebra(ws, i + 2, colunas.length);
     });
     if (!linhas.length) {

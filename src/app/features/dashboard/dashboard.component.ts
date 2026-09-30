@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { ChamadosService } from '../../core/chamados.service';
 import { SessaoService } from '../../core/sessao.service';
 import { ExcelService } from '../../core/excel.service';
@@ -20,7 +20,7 @@ interface Kpi { rotulo: string; valor: string | number; cor: string; corValor: s
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [FormsModule, DatePipe, DonutComponent],
+  imports: [FormsModule, DatePipe, NgTemplateOutlet, DonutComponent],
   template: `
     <div class="flex items-center justify-between flex-wrap gap-4 mb-6">
       <div>
@@ -117,6 +117,8 @@ interface Kpi { rotulo: string; valor: string | number; cor: string; corValor: s
         </div>
       }
 
+      @if (filtroRapido() === 'sla') { <ng-container *ngTemplateOutlet="quadroSla" /> }
+
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div class="card bg-white border border-stone-200 rounded-2xl shadow-sm p-6 anima-entrada">
           <h3 class="font-bold text-stone-800 text-sm mb-4">Chamados por produto</h3>
@@ -192,100 +194,7 @@ interface Kpi { rotulo: string; valor: string | number; cor: string; corValor: s
         </table>
       </div>
 
-      <!-- Chamados com SLA estourado: quando venceu, quando foi tratado e quando foi sanado -->
-      <div class="flex items-end justify-between flex-wrap gap-3 mb-3">
-        <h2 class="text-sm font-bold text-stone-700 uppercase tracking-wider">
-          Chamados com SLA estourado ({{ slaEstourados().length }})
-          <span class="normal-case font-semibold text-stone-400">· quando venceu, quando começou a tratativa e quando foi resolvido</span>
-        </h2>
-        @if (slaEstourados().length) {
-          <div class="flex items-center gap-1 bg-stone-100 rounded-lg p-1">
-            @for (op of opcoesVisaoEstourados; track op.chave) {
-              <button (click)="visaoEstourados.set(op.chave)"
-                      class="px-3 py-1 rounded-md text-xs font-semibold transition-colors"
-                      [class]="visaoEstourados() === op.chave ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'">
-                {{ op.rotulo }} ({{ contagemEstourados()[op.chave] }})
-              </button>
-            }
-          </div>
-        }
-      </div>
-      @if (slaEstourados().length === 0) {
-        <p class="text-sm text-stone-400 py-6 text-center bg-white border border-stone-200 rounded-xl mb-8">Nenhum chamado estourou o SLA no período/filtro selecionado.</p>
-      } @else {
-        <div class="card bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden tabela-scroll mb-8 anima-entrada">
-          <table class="tabela-moderna w-full text-left text-sm">
-            <thead class="bg-stone-50 border-b border-stone-200 text-stone-500 text-xs uppercase font-bold">
-              <tr><th class="py-3 px-4">Chamado</th><th class="py-3 px-4">Proposta</th><th class="py-3 px-4">Gravidade</th>
-                <th class="py-3 px-4">Aberto em</th><th class="py-3 px-4">Venceu em</th><th class="py-3 px-4">Tratativa iniciada</th>
-                <th class="py-3 px-4">Resolvido em</th><th class="py-3 px-4 text-center">Atraso</th><th class="py-3 px-4">Situação</th></tr>
-            </thead>
-            <tbody class="divide-y divide-stone-100">
-              @for (l of estouradosExibidos(); track l.chamado.id) {
-                <tr (click)="alternarHistorico(l.chamado.id)" class="cursor-pointer" [title]="'Clique para ver o histórico do chamado #' + idFmt(l.chamado)">
-                  <td class="py-2.5 px-4 code-font text-stone-500">
-                    <span class="text-stone-300 mr-1">{{ historicoAberto() === l.chamado.id ? '▾' : '▸' }}</span>#{{ idFmt(l.chamado) }}
-                    <span class="block text-[11px] text-stone-400 font-sans">{{ l.chamado.produto }}</span>
-                  </td>
-                  <td class="py-2.5 px-4 code-font text-stone-700">
-                    {{ l.chamado.idProposta || '—' }}
-                    @if (l.chamado.cpf) { <span class="block text-[11px] text-stone-400">CPF {{ l.chamado.cpf }}</span> }
-                  </td>
-                  <td class="py-2.5 px-4"><span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border" [class]="badgeGravidade(l.chamado.gravidade)">{{ l.chamado.gravidade }}</span></td>
-                  <td class="py-2.5 px-4 text-stone-500 whitespace-nowrap">{{ l.chamado.criadoEm | date:'dd/MM/yyyy HH:mm' }}</td>
-                  <td class="py-2.5 px-4 text-red-600 whitespace-nowrap">{{ l.venceuEm ? (l.venceuEm | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
-                  <td class="py-2.5 px-4 whitespace-nowrap">
-                    @if (l.tratativaEm) {
-                      <span class="text-stone-700">{{ l.tratativaEm | date:'dd/MM/yyyy HH:mm' }}</span>
-                      <span class="block text-[11px]" [class]="l.tratativaAposVencer ? 'text-red-500' : 'text-stone-400'">
-                        {{ l.tratativaPor || '—' }}{{ l.tratativaAposVencer ? ' · após vencer' : '' }}
-                      </span>
-                    } @else {
-                      <span class="text-stone-400 text-xs">{{ l.resolvido ? 'resolvido sem tratativa' : 'não iniciada' }}</span>
-                    }
-                  </td>
-                  <td class="py-2.5 px-4 whitespace-nowrap">
-                    @if (l.resolvido) {
-                      <span class="text-green-700">{{ l.resolvidoEm | date:'dd/MM/yyyy HH:mm' }}</span>
-                      <span class="block text-[11px] text-stone-400">{{ l.resolvidoPor || '—' }}</span>
-                    } @else {
-                      <span class="text-stone-400 text-xs">—</span>
-                    }
-                  </td>
-                  <td class="py-2.5 px-4 text-center code-font font-bold text-red-600">+{{ prazoCurto(l.atrasoDias) }}</td>
-                  <td class="py-2.5 px-4">
-                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
-                          [class]="l.resolvido ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'">
-                      {{ l.resolvido ? 'Resolvido com atraso' : 'Em aberto, atrasado' }}
-                    </span>
-                  </td>
-                </tr>
-                @if (historicoAberto() === l.chamado.id) {
-                  <tr class="bg-stone-50">
-                    <td colspan="9" class="px-6 py-3">
-                      <p class="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Histórico de status</p>
-                      @if (historico(l.chamado).length === 0) {
-                        <p class="text-xs text-stone-400">Sem histórico gravado — chamado anterior ao controle de esteira.</p>
-                      } @else {
-                        <ol class="space-y-1">
-                          @for (ev of historico(l.chamado); track $index) {
-                            <li class="text-xs text-stone-600 flex gap-3">
-                              <span class="code-font text-stone-400 w-32 shrink-0">{{ ev.em | date:'dd/MM/yyyy HH:mm' }}</span>
-                              <span><b>{{ rotuloEvento(ev.de) }}</b> → <b>{{ rotuloEvento(ev.para) }}</b> · {{ ev.por || '—' }}
-                                @if (ev.origem && ev.origem !== 'app') { <span class="text-stone-400">({{ ev.origem }})</span> }
-                              </span>
-                            </li>
-                          }
-                        </ol>
-                      }
-                    </td>
-                  </tr>
-                }
-              }
-            </tbody>
-          </table>
-        </div>
-      }
+      @if (filtroRapido() !== 'sla') { <ng-container *ngTemplateOutlet="quadroSla" /> }
 
       <h2 class="text-sm font-bold text-stone-700 uppercase tracking-wider mb-3">Por quem registrou <span class="normal-case font-semibold text-stone-400">· quem abriu o chamado</span></h2>
       <div class="card bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden tabela-scroll anima-entrada">
@@ -389,6 +298,131 @@ interface Kpi { rotulo: string; valor: string | number; cor: string; corValor: s
         }
       </div>
     }
+
+    <!-- Quadro "Chamados com SLA estourado": aparece no topo quando o card SLA estourado está filtrando, senão no lugar de sempre -->
+    <ng-template #quadroSla>
+        <!-- Chamados com SLA estourado: quando venceu, quando foi tratado e quando foi sanado -->
+        <div class="flex items-end justify-between flex-wrap gap-3 mb-3">
+          <h2 class="text-sm font-bold text-stone-700 uppercase tracking-wider">
+            Chamados com SLA estourado ({{ slaEstourados().length }})
+            <span class="normal-case font-semibold text-stone-400">· quando venceu, quando começou a tratativa e quando foi resolvido</span>
+          </h2>
+          @if (slaEstourados().length) {
+            <div class="flex items-center gap-1 bg-stone-100 rounded-lg p-1">
+              @for (op of opcoesVisaoEstourados; track op.chave) {
+                <button (click)="visaoEstourados.set(op.chave)"
+                        class="px-3 py-1 rounded-md text-xs font-semibold transition-colors"
+                        [class]="visaoEstourados() === op.chave ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'">
+                  {{ op.rotulo }} ({{ contagemEstourados()[op.chave] }})
+                </button>
+              }
+            </div>
+          }
+        </div>
+        @if (slaEstourados().length === 0) {
+          <p class="text-sm text-stone-400 py-6 text-center bg-white border border-stone-200 rounded-xl mb-8">Nenhum chamado estourou o SLA no período/filtro selecionado.</p>
+        } @else {
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <div class="bg-white border border-stone-200 rounded-xl px-4 py-3">
+              <p class="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Ainda em aberto</p>
+              <p class="text-xl font-bold code-font text-red-600 mt-0.5">{{ contagemEstourados().abertos }}</p>
+              <p class="text-[11px] text-stone-400">{{ resumoEstourados().semTratativa }} sem tratativa iniciada</p>
+            </div>
+            <div class="bg-white border border-stone-200 rounded-xl px-4 py-3">
+              <p class="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Resolvidos com atraso</p>
+              <p class="text-xl font-bold code-font text-green-700 mt-0.5">{{ contagemEstourados().resolvidos }}</p>
+              <p class="text-[11px] text-stone-400">atraso médio +{{ prazoCurto(resumoEstourados().atrasoMedioResolvidos) }}</p>
+            </div>
+            <div class="bg-white border border-stone-200 rounded-xl px-4 py-3">
+              <p class="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Atraso médio (todos)</p>
+              <p class="text-xl font-bold code-font text-stone-800 mt-0.5">+{{ prazoCurto(resumoEstourados().atrasoMedio) }}</p>
+              <p class="text-[11px] text-stone-400">além do prazo do SLA</p>
+            </div>
+            <div class="bg-white border border-stone-200 rounded-xl px-4 py-3">
+              <p class="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Tempo médio p/ resolver</p>
+              <p class="text-xl font-bold code-font text-stone-800 mt-0.5">{{ prazoCurto(resumoEstourados().tempoMedioResolucao) }}</p>
+              <p class="text-[11px] text-stone-400">da abertura à resolução</p>
+            </div>
+          </div>
+          <p class="text-xs text-stone-400 mb-2">Clique em um chamado para ver o histórico completo (cada mudança de status, quando e por quem).</p>
+          <div class="card bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden tabela-scroll mb-8 anima-entrada">
+            <table class="tabela-moderna w-full text-left text-sm">
+              <thead class="bg-stone-50 border-b border-stone-200 text-stone-500 text-xs uppercase font-bold">
+                <tr><th class="py-3 px-4">Chamado</th><th class="py-3 px-4">Proposta</th><th class="py-3 px-4">Gravidade</th>
+                  <th class="py-3 px-4">Aberto em</th><th class="py-3 px-4">Venceu em</th><th class="py-3 px-4">Tratativa iniciada</th>
+                  <th class="py-3 px-4">Resolvido em</th><th class="py-3 px-4 text-center">Tempo total</th><th class="py-3 px-4 text-center">Atraso</th><th class="py-3 px-4">Situação</th></tr>
+              </thead>
+              <tbody class="divide-y divide-stone-100">
+                @for (l of estouradosExibidos(); track l.chamado.id) {
+                  <tr (click)="alternarHistorico(l.chamado.id)" class="cursor-pointer" [title]="'Clique para ver o histórico do chamado #' + idFmt(l.chamado)">
+                    <td class="py-2.5 px-4 code-font text-stone-500">
+                      <span class="text-stone-300 mr-1">{{ historicoAberto() === l.chamado.id ? '▾' : '▸' }}</span>#{{ idFmt(l.chamado) }}
+                      <span class="block text-[11px] text-stone-400 font-sans">{{ l.chamado.produto }}</span>
+                    </td>
+                    <td class="py-2.5 px-4 code-font text-stone-700">
+                      {{ l.chamado.idProposta || '—' }}
+                      @if (l.chamado.cpf) { <span class="block text-[11px] text-stone-400">CPF {{ l.chamado.cpf }}</span> }
+                    </td>
+                    <td class="py-2.5 px-4"><span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border" [class]="badgeGravidade(l.chamado.gravidade)">{{ l.chamado.gravidade }}</span></td>
+                    <td class="py-2.5 px-4 text-stone-500 whitespace-nowrap">{{ l.chamado.criadoEm | date:'dd/MM/yyyy HH:mm' }}</td>
+                    <td class="py-2.5 px-4 text-red-600 whitespace-nowrap">{{ l.venceuEm ? (l.venceuEm | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
+                    <td class="py-2.5 px-4 whitespace-nowrap">
+                      @if (l.tratativaEm) {
+                        <span class="text-stone-700">{{ l.tratativaEm | date:'dd/MM/yyyy HH:mm' }}</span>
+                        <span class="block text-[11px]" [class]="l.tratativaAposVencer ? 'text-red-500' : 'text-stone-400'">
+                          {{ l.tratativaPor || '—' }}{{ l.tratativaAposVencer ? ' · após vencer' : '' }}
+                        </span>
+                      } @else {
+                        <span class="text-stone-400 text-xs">{{ l.resolvido ? 'resolvido sem tratativa' : 'não iniciada' }}</span>
+                      }
+                    </td>
+                    <td class="py-2.5 px-4 whitespace-nowrap">
+                      @if (l.resolvido) {
+                        <span class="text-green-700">{{ l.resolvidoEm | date:'dd/MM/yyyy HH:mm' }}</span>
+                        <span class="block text-[11px] text-stone-400">{{ l.resolvidoPor || '—' }}</span>
+                      } @else {
+                        <span class="text-stone-400 text-xs">—</span>
+                      }
+                    </td>
+                    <td class="py-2.5 px-4 text-center code-font text-stone-600" [title]="'Prazo do SLA: ' + l.prazoDias + ' dia(s)'">
+                      {{ l.resolvido ? prazoCurto(l.duracaoDias) : prazoCurto(idadeDias(l.chamado)) }}
+                      <span class="block text-[11px] text-stone-400 font-sans">prazo {{ l.prazoDias }}d{{ l.resolvido ? '' : ' · em aberto' }}</span>
+                    </td>
+                    <td class="py-2.5 px-4 text-center code-font font-bold text-red-600">+{{ prazoCurto(l.atrasoDias) }}</td>
+                    <td class="py-2.5 px-4">
+                      <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+                            [class]="l.resolvido ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'">
+                        {{ l.resolvido ? 'Resolvido com atraso' : 'Em aberto, atrasado' }}
+                      </span>
+                    </td>
+                  </tr>
+                  @if (historicoAberto() === l.chamado.id) {
+                    <tr class="bg-stone-50">
+                      <td colspan="10" class="px-6 py-3">
+                        <p class="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Histórico de status</p>
+                        @if (historico(l.chamado).length === 0) {
+                          <p class="text-xs text-stone-400">Sem histórico gravado — chamado anterior ao controle de esteira.</p>
+                        } @else {
+                          <ol class="space-y-1">
+                            @for (ev of historico(l.chamado); track $index) {
+                              <li class="text-xs text-stone-600 flex gap-3">
+                                <span class="code-font text-stone-400 w-32 shrink-0">{{ ev.em | date:'dd/MM/yyyy HH:mm' }}</span>
+                                <span><b>{{ rotuloEvento(ev.de) }}</b> → <b>{{ rotuloEvento(ev.para) }}</b> · {{ ev.por || '—' }}
+                                  @if (ev.origem && ev.origem !== 'app') { <span class="text-stone-400">({{ ev.origem }})</span> }
+                                </span>
+                              </li>
+                            }
+                          </ol>
+                        }
+                      </td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+    </ng-template>
   `
 })
 export class DashboardComponent {
@@ -426,12 +460,13 @@ export class DashboardComponent {
     '': () => true,
     'abertos': r => chamadoAberto(r),
     'tratativa': r => statusChamado(r) === 'Pendente',
-    'sla': r => !chamadoResolvido(r) && slaEstourado(r),
+    // mesmo critério do número do card: em aberto atrasados + resolvidos com atraso
+    'sla': r => slaEstourado(r),
     'resolvidos': r => chamadoResolvido(r)
   };
   private readonly rotulosFiltro: Record<ChaveFiltro, string> = {
     '': 'todos os chamados', 'abertos': 'chamados abertos', 'tratativa': 'em tratativa',
-    'sla': 'SLA estourado em aberto', 'resolvidos': 'resolvidos'
+    'sla': 'SLA estourado', 'resolvidos': 'resolvidos'
   };
   private readonly coresFiltro: Record<ChaveFiltro, string> = {
     '': '#E35205', 'abertos': '#2563eb', 'tratativa': '#f59e0b', 'sla': '#dc2626', 'resolvidos': '#16a34a'
@@ -481,6 +516,18 @@ export class DashboardComponent {
     const lista = this.slaEstourados();
     const resolvidos = lista.filter(l => l.resolvido).length;
     return { todos: lista.length, abertos: lista.length - resolvidos, resolvidos };
+  });
+  /** Resumo em cima do quadro: atraso médio e tempo médio até resolver os que estouraram. */
+  readonly resumoEstourados = computed(() => {
+    const lista = this.slaEstourados();
+    const media = (v: number[]) => v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+    const resolvidos = lista.filter(l => l.resolvido);
+    return {
+      atrasoMedio: media(lista.map(l => l.atrasoDias)),
+      atrasoMedioResolvidos: media(resolvidos.map(l => l.atrasoDias)),
+      tempoMedioResolucao: media(resolvidos.map(l => l.duracaoDias).filter((d): d is number => d != null)),
+      semTratativa: lista.filter(l => !l.tratativaEm && !l.resolvido).length
+    };
   });
   readonly estouradosExibidos = computed(() => {
     const visao = this.visaoEstourados();
@@ -577,7 +624,9 @@ export class DashboardComponent {
   ehResolvido(r: Chamado): boolean { return chamadoResolvido(r); }
   statusDe(r: Chamado): string { return statusChamado(r); }
   idFmt(r: Chamado): string { return String(r.id).padStart(4, '0'); }
-  prazoCurto(dias: number): string { return prazoCurto(dias); }
+  prazoCurto(dias: number | null): string { return dias == null ? '—' : prazoCurto(dias); }
+  /** Dias desde a abertura (fracionado), para os que ainda estão em aberto. */
+  idadeDias(r: Chamado): number { return Math.max(0, (Date.now() - new Date(r.criadoEm).getTime()) / 86400000); }
   historico(r: Chamado): EventoStatus[] { return historicoDe(r); }
   rotuloEvento(status: string): string { return SAC_STATUS_LABEL[status] || status || '—'; }
 }

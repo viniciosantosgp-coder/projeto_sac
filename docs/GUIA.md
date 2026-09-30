@@ -102,8 +102,18 @@ dashboard.component.ts filtra por período/produto ──► registros()
 
 ## 4. A função nova: "Chamados com SLA estourado"
 
-**Onde fica:** Dashboard, logo abaixo do quadro "SLA por gravidade". Também virou
-uma aba nova no Excel exportado ("SLA estourado").
+**Onde fica:** Dashboard. Ao **clicar no card "SLA estourado"**, o painel filtra
+os chamados que estouraram o prazo (os ainda em aberto e os já resolvidos com
+atraso, o mesmo número do card) e o quadro aparece logo abaixo dos cards. Sem o
+filtro, ele fica abaixo de "SLA por gravidade". Também virou uma aba no Excel
+exportado ("SLA estourado").
+
+No topo do quadro há um resumo: quantos ainda estão em aberto (e quantos nem
+tiveram tratativa), quantos foram resolvidos com atraso, o atraso médio e o
+tempo médio até resolver.
+
+> Na tela de **Chamados** o card continua sendo "SLA estourado (em aberto)": lá
+> o objetivo é a fila de trabalho, então só interessa o que ainda está pendente.
 
 **O que mostra**, para cada chamado que estourou o prazo no período filtrado:
 
@@ -115,6 +125,7 @@ uma aba nova no Excel exportado ("SLA estourado").
 | Venceu em | `slaVenceEm` (ou abertura + prazo da gravidade, para registros antigos) |
 | Tratativa iniciada (data + quem) | `tratativaIniciadaEm` / `tratativaPor`. Se o campo estiver vazio (registro antigo), usa o evento "Chamado aberto → Em tratativa" do histórico. Marca **"após vencer"** em vermelho se a tratativa começou depois do vencimento |
 | Resolvido em (data + quem) | `resolvidoEm` / `resolvidoPor` |
+| Tempo total | da abertura até a resolução (ou até agora, se ainda em aberto), com o prazo do SLA embaixo |
 | Atraso | quanto passou do prazo (para resolvidos, congela na data de resolução) |
 | Situação | "Em aberto, atrasado" ou "Resolvido com atraso" |
 
