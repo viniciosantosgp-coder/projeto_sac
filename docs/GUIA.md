@@ -150,6 +150,11 @@ uma aba nova no Excel exportado ("SLA estourado").
 3. **Firebase CLI** (para publicar): `npm install -g firebase-tools` e depois `firebase login`.
 
 ### Rodar localmente
+**Jeito fácil:** dê dois cliques em `RODAR-LOCAL.bat`, na raiz do projeto. Ele instala
+as dependências na primeira vez, sobe o sistema e abre o navegador em
+`http://localhost:4200`. Para parar, feche a janela preta.
+
+**Pelo terminal:**
 ```powershell
 cd C:\Users\vinicio.santos\source\repos\projeto_sac
 npm install        # só na primeira vez ou quando mudar o package.json
