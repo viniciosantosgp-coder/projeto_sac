@@ -195,31 +195,44 @@ interface CardFiltro {
         {{ busca.trim() ? 'Registros encontrados' : (filtroRapido() ? 'Registros — ' + rotuloFiltroAtivo() : 'Todos os registros no filtro') }} ({{ exibidos().length }})
       </h2>
       <div class="card bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden tabela-scroll anima-entrada">
-        <table class="tabela-moderna w-full text-left text-sm">
+        <!-- table-fixed + colgroup: larguras fixas por coluna; textos longos são cortados com "…" (passe o mouse para ver inteiro) -->
+        <table class="tabela-moderna w-full table-fixed text-left text-[13px]">
+          <colgroup>
+            <col class="w-[6%]"><col class="w-[8%]"><col class="w-[12%]"><col class="w-[16%]"><col class="w-[8%]">
+            <col class="w-[12%]"><col class="w-[15%]"><col class="w-[10%]"><col class="w-[13%]">
+          </colgroup>
           <thead class="bg-stone-50 border-b border-stone-200 text-stone-500 text-xs uppercase font-bold">
             <tr>
-              <th class="py-3 px-4">ID</th><th class="py-3 px-4">Data</th><th class="py-3 px-4">Produto</th>
-              <th class="py-3 px-4">Motivo</th><th class="py-3 px-4">Gravidade</th><th class="py-3 px-4">SLA</th>
-              <th class="py-3 px-4">Atendente</th><th class="py-3 px-4">Status</th><th class="py-3 px-4"></th>
+              <th class="py-3 px-3">ID</th><th class="py-3 px-3">Data</th><th class="py-3 px-3">Produto</th>
+              <th class="py-3 px-3">Motivo</th><th class="py-3 px-3">Gravidade</th><th class="py-3 px-3">SLA</th>
+              <th class="py-3 px-3">Atendente</th><th class="py-3 px-3">Status</th><th class="py-3 px-3"></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-stone-100">
             @for (r of paginaTabela.itens(); track r.id) {
-              <tr (click)="abrirDetalhe(r)" class="cursor-pointer">
-                <td class="py-2.5 px-4 code-font text-stone-500">#{{ idFmt(r) }}</td>
-                <td class="py-2.5 px-4 text-stone-500">{{ r.criadoEm | date:'dd/MM/yyyy' }}</td>
-                <td class="py-2.5 px-4"><span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-stone-100 text-stone-600">{{ r.produto }}</span></td>
-                <td class="py-2.5 px-4 text-stone-600">{{ r.categoria }}</td>
-                <td class="py-2.5 px-4"><span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border" [class]="corGravidade(r)">{{ r.gravidade }}</span></td>
-                <td class="py-2.5 px-4"><span class="badge-sla text-[10px] font-semibold px-2 py-0.5 rounded-full border" [class]="corSla(r)" [title]="dicaSla(r)">{{ textoSlaBadge(r) }}</span></td>
-                <td class="py-2.5 px-4 text-stone-600">
-                  {{ r.atendente || '—' }}
+              <tr (click)="abrirDetalhe(r)" class="cursor-pointer align-middle">
+                <td class="py-3 px-3 code-font text-stone-500 whitespace-nowrap">#{{ idFmt(r) }}</td>
+                <td class="py-3 px-3 text-stone-500 whitespace-nowrap">{{ r.criadoEm | date:'dd/MM/yyyy' }}</td>
+                <td class="py-3 px-3">
+                  <span class="inline-block max-w-full truncate align-middle text-[11px] font-semibold px-2 py-0.5 rounded-full bg-stone-100 text-stone-600" [title]="r.produto">{{ r.produto }}</span>
+                </td>
+                <td class="py-3 px-3 text-stone-600 truncate" [title]="r.categoria">{{ r.categoria }}</td>
+                <td class="py-3 px-3 whitespace-nowrap">
+                  <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full border" [class]="corGravidade(r)">{{ r.gravidade }}</span>
+                </td>
+                <td class="py-3 px-3 whitespace-nowrap">
+                  <span class="badge-sla inline-block max-w-full truncate align-middle text-[11px] font-semibold px-2 py-0.5 rounded-full border" [class]="corSla(r)" [title]="dicaSla(r)">{{ textoSlaBadge(r) }}</span>
+                </td>
+                <td class="py-3 px-3 text-stone-600">
+                  <div class="truncate" [title]="r.atendente">{{ r.atendente || '—' }}</div>
                   @if (responsavel(r) && responsavel(r) !== r.atendente) {
-                    <span class="block text-[11px] text-stone-400">{{ resolvido(r) ? 'resolvido por' : 'tratando' }}: {{ responsavel(r) }}</span>
+                    <div class="text-[11px] text-stone-400 truncate" [title]="responsavel(r)">{{ resolvido(r) ? 'resolvido por' : 'tratando' }}: {{ responsavel(r) }}</div>
                   }
                 </td>
-                <td class="py-2.5 px-4"><span class="font-semibold text-xs" [class]="corTextoStatus(r)">{{ resolvido(r) ? '✓ ' : '' }}{{ rotuloDeStatus(r) }}</span></td>
-                <td class="py-2.5 px-4 text-right whitespace-nowrap">
+                <td class="py-3 px-3 whitespace-nowrap">
+                  <span class="text-xs font-semibold" [class]="corTextoStatus(r)">{{ resolvido(r) ? '✓ ' : '' }}{{ rotuloDeStatus(r) }}</span>
+                </td>
+                <td class="py-3 px-3 text-right whitespace-nowrap">
                   @if (aberto(r)) {
                     <button (click)="$event.stopPropagation(); mover(r, 'Pendente')" class="text-xs font-semibold text-blue-600 hover:text-blue-800 mr-3">Iniciar tratativa</button>
                   }
