@@ -346,61 +346,75 @@ interface Kpi { rotulo: string; valor: string | number; cor: string; corValor: s
           </div>
           <p class="text-xs text-stone-400 mb-2">Clique em um chamado para ver o histórico completo (cada mudança de status, quando e por quem).</p>
           <div class="card bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden tabela-scroll mb-8 anima-entrada">
-            <table class="tabela-moderna w-full text-left text-sm">
+            <!-- table-fixed + colgroup: cada coluna tem largura fixa, então tudo cabe e fica alinhado -->
+            <table class="tabela-moderna tabela-sla w-full table-fixed text-left text-[13px]">
+              <colgroup>
+                <col class="w-[15%]"><col class="w-[14%]"><col class="w-[17%]"><col class="w-[15%]">
+                <col class="w-[16%]"><col class="w-[11%]"><col class="w-[12%]">
+              </colgroup>
               <thead class="bg-stone-50 border-b border-stone-200 text-stone-500 text-xs uppercase font-bold">
-                <tr><th class="py-3 px-4">Chamado</th><th class="py-3 px-4">Proposta</th><th class="py-3 px-4">Gravidade</th>
-                  <th class="py-3 px-4">Aberto em</th><th class="py-3 px-4">Venceu em</th><th class="py-3 px-4">Tratativa iniciada</th>
-                  <th class="py-3 px-4">Resolvido em</th><th class="py-3 px-4 text-center">Tempo total</th><th class="py-3 px-4 text-center">Atraso</th><th class="py-3 px-4">Situação</th></tr>
+                <tr>
+                  <th class="py-3 px-3">Chamado</th>
+                  <th class="py-3 px-3">Proposta / CPF</th>
+                  <th class="py-3 px-3">Abertura e prazo</th>
+                  <th class="py-3 px-3">Tratativa</th>
+                  <th class="py-3 px-3">Resolução</th>
+                  <th class="py-3 px-3 text-center">Atraso</th>
+                  <th class="py-3 px-3 text-center">Situação</th>
+                </tr>
               </thead>
               <tbody class="divide-y divide-stone-100">
                 @for (l of estouradosExibidos(); track l.chamado.id) {
-                  <tr (click)="alternarHistorico(l.chamado.id)" class="cursor-pointer" [title]="'Clique para ver o histórico do chamado #' + idFmt(l.chamado)">
-                    <td class="py-2.5 px-4 code-font text-stone-500">
-                      <span class="text-stone-300 mr-1">{{ historicoAberto() === l.chamado.id ? '▾' : '▸' }}</span>#{{ idFmt(l.chamado) }}
-                      <span class="block text-[11px] text-stone-400 font-sans">{{ l.chamado.produto }}</span>
+                  <tr (click)="alternarHistorico(l.chamado.id)" class="cursor-pointer align-middle" [title]="'Clique para ver o histórico do chamado #' + idFmt(l.chamado)">
+                    <td class="py-3 px-3">
+                      <div class="flex items-center gap-1.5 whitespace-nowrap">
+                        <span class="text-stone-300 text-[10px] w-2">{{ historicoAberto() === l.chamado.id ? '▾' : '▸' }}</span>
+                        <span class="code-font font-semibold text-stone-700">#{{ idFmt(l.chamado) }}</span>
+                        <span class="text-[10px] font-semibold px-1.5 py-px rounded-full border" [class]="badgeGravidade(l.chamado.gravidade)">{{ l.chamado.gravidade }}</span>
+                      </div>
+                      <div class="text-[11px] text-stone-400 truncate pl-3.5" [title]="l.chamado.produto">{{ l.chamado.produto }}</div>
                     </td>
-                    <td class="py-2.5 px-4 code-font text-stone-700">
-                      {{ l.chamado.idProposta || '—' }}
-                      @if (l.chamado.cpf) { <span class="block text-[11px] text-stone-400">CPF {{ l.chamado.cpf }}</span> }
+                    <td class="py-3 px-3">
+                      <div class="code-font text-stone-700 truncate">{{ l.chamado.idProposta || '—' }}</div>
+                      <div class="code-font text-[11px] text-stone-400 truncate">{{ l.chamado.cpf || '—' }}</div>
                     </td>
-                    <td class="py-2.5 px-4"><span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border" [class]="badgeGravidade(l.chamado.gravidade)">{{ l.chamado.gravidade }}</span></td>
-                    <td class="py-2.5 px-4 text-stone-500 whitespace-nowrap">{{ l.chamado.criadoEm | date:'dd/MM/yyyy HH:mm' }}</td>
-                    <td class="py-2.5 px-4 text-red-600 whitespace-nowrap">{{ l.venceuEm ? (l.venceuEm | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
-                    <td class="py-2.5 px-4 whitespace-nowrap">
+                    <td class="py-3 px-3 whitespace-nowrap">
+                      <div class="text-stone-600"><span class="text-[10px] text-stone-400 uppercase font-bold w-12 inline-block">Aberto</span>{{ l.chamado.criadoEm | date:'dd/MM/yy HH:mm' }}</div>
+                      <div class="text-red-600"><span class="text-[10px] text-stone-400 uppercase font-bold w-12 inline-block">Venceu</span>{{ l.venceuEm ? (l.venceuEm | date:'dd/MM/yy HH:mm') : '—' }}</div>
+                    </td>
+                    <td class="py-3 px-3">
                       @if (l.tratativaEm) {
-                        <span class="text-stone-700">{{ l.tratativaEm | date:'dd/MM/yyyy HH:mm' }}</span>
-                        <span class="block text-[11px]" [class]="l.tratativaAposVencer ? 'text-red-500' : 'text-stone-400'">
-                          {{ l.tratativaPor || '—' }}{{ l.tratativaAposVencer ? ' · após vencer' : '' }}
-                        </span>
+                        <div class="text-stone-700 whitespace-nowrap">{{ l.tratativaEm | date:'dd/MM/yy HH:mm' }}</div>
+                        <div class="text-[11px] truncate" [class]="l.tratativaAposVencer ? 'text-red-500' : 'text-stone-400'" [title]="l.tratativaPor">
+                          {{ l.tratativaAposVencer ? 'após vencer · ' : '' }}{{ l.tratativaPor || '—' }}
+                        </div>
                       } @else {
-                        <span class="text-stone-400 text-xs">{{ l.resolvido ? 'resolvido sem tratativa' : 'não iniciada' }}</span>
+                        <div class="text-stone-400 text-xs italic">{{ l.resolvido ? 'sem tratativa' : 'não iniciada' }}</div>
                       }
                     </td>
-                    <td class="py-2.5 px-4 whitespace-nowrap">
+                    <td class="py-3 px-3">
                       @if (l.resolvido) {
-                        <span class="text-green-700">{{ l.resolvidoEm | date:'dd/MM/yyyy HH:mm' }}</span>
-                        <span class="block text-[11px] text-stone-400">{{ l.resolvidoPor || '—' }}</span>
+                        <div class="text-green-700 whitespace-nowrap">{{ l.resolvidoEm | date:'dd/MM/yy HH:mm' }}</div>
+                        <div class="text-[11px] text-stone-400 truncate" [title]="l.resolvidoPor">{{ l.resolvidoPor || '—' }}</div>
                       } @else {
-                        <span class="text-stone-400 text-xs">—</span>
+                        <div class="text-stone-400 text-xs italic">ainda em aberto</div>
                       }
                     </td>
-                    <td class="py-2.5 px-4 text-center code-font text-stone-600" [title]="'Prazo do SLA: ' + l.prazoDias + ' dia(s)'">
-                      {{ l.resolvido ? prazoCurto(l.duracaoDias) : prazoCurto(idadeDias(l.chamado)) }}
-                      <span class="block text-[11px] text-stone-400 font-sans">prazo {{ l.prazoDias }}d{{ l.resolvido ? '' : ' · em aberto' }}</span>
+                    <td class="py-3 px-3 text-center whitespace-nowrap" [title]="'Prazo do SLA: ' + l.prazoDias + ' dia(s)'">
+                      <div class="code-font font-bold text-red-600">+{{ prazoCurto(l.atrasoDias) }}</div>
+                      <div class="text-[11px] text-stone-400">{{ l.resolvido ? prazoCurto(l.duracaoDias) : prazoCurto(idadeDias(l.chamado)) }} / prazo {{ l.prazoDias }}d</div>
                     </td>
-                    <td class="py-2.5 px-4 text-center code-font font-bold text-red-600">+{{ prazoCurto(l.atrasoDias) }}</td>
-                    <td class="py-2.5 px-4 whitespace-nowrap">
-                      <!-- largura fixa + sem quebra: os dois selos ficam do mesmo tamanho e alinhados -->
-                      <span class="inline-flex items-center justify-center gap-1.5 min-w-[164px] text-[11px] font-semibold px-2.5 py-1 rounded-full border"
+                    <td class="py-3 px-3 text-center">
+                      <span class="inline-flex items-center justify-center gap-1.5 w-[96px] text-[11px] font-semibold py-1 rounded-full border whitespace-nowrap"
                             [class]="l.resolvido ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'">
                         <span class="w-1.5 h-1.5 rounded-full shrink-0" [class]="l.resolvido ? 'bg-green-500' : 'bg-red-500'"></span>
-                        {{ l.resolvido ? 'Resolvido com atraso' : 'Em aberto, atrasado' }}
+                        {{ l.resolvido ? 'Resolvido' : 'Em aberto' }}
                       </span>
                     </td>
                   </tr>
                   @if (historicoAberto() === l.chamado.id) {
                     <tr class="bg-stone-50">
-                      <td colspan="10" class="px-6 py-3">
+                      <td colspan="7" class="px-6 py-3">
                         <p class="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Histórico de status</p>
                         @if (historico(l.chamado).length === 0) {
                           <p class="text-xs text-stone-400">Sem histórico gravado — chamado anterior ao controle de esteira.</p>
