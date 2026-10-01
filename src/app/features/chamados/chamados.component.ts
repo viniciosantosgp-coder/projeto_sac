@@ -79,17 +79,17 @@ interface CardFiltro {
           <option value="__naoResolvidos">Em andamento (aberto + tratativa)</option>
         </select>
       </div>
-      <button (click)="recarregar()" class="px-5 py-2 bg-[#E35205] text-white rounded-lg text-sm font-semibold hover:bg-[#c44503] transition-colors">Aplicar filtro</button>
+      <button (click)="aplicarFiltro()" class="px-5 py-2 bg-[#E35205] text-white rounded-lg text-sm font-semibold hover:bg-[#c44503] transition-colors">Aplicar filtro</button>
 
       <div class="w-full sm:w-auto sm:ml-auto">
         <label class="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Buscar registro</label>
         <div class="flex items-center gap-2">
           <div class="relative flex-1 sm:flex-none">
             <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" width="15" height="15" fill="currentColor" viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></svg>
-            <input [(ngModel)]="busca" (keydown.enter)="recarregar()" type="text" placeholder="CPF ou ID do chamado"
+            <input [(ngModel)]="busca" (keydown.enter)="aplicarFiltro()" type="text" placeholder="CPF ou ID do chamado"
                    class="border border-stone-200 rounded-lg pl-9 pr-3 py-2 text-sm code-font w-full sm:min-w-[220px]">
           </div>
-          <button (click)="recarregar()" class="px-4 py-2 bg-stone-800 hover:bg-stone-900 text-white rounded-lg text-sm font-semibold transition-colors">Buscar</button>
+          <button (click)="aplicarFiltro()" class="px-4 py-2 bg-stone-800 hover:bg-stone-900 text-white rounded-lg text-sm font-semibold transition-colors">Buscar</button>
         </div>
       </div>
     </div>
@@ -186,7 +186,7 @@ interface CardFiltro {
       </div>
 
       <!-- Tabela -->
-      <h2 class="text-sm font-bold text-stone-700 uppercase tracking-wider mb-3">
+      <h2 id="tabela-registros" class="text-sm font-bold text-stone-700 uppercase tracking-wider mb-3 scroll-mt-24">
         {{ busca.trim() ? 'Registros encontrados' : (filtroRapido() ? 'Registros — ' + rotuloFiltroAtivo() : 'Todos os registros no filtro') }} ({{ exibidos().length }})
       </h2>
       <div class="card bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden tabela-scroll anima-entrada">
@@ -199,7 +199,7 @@ interface CardFiltro {
             </tr>
           </thead>
           <tbody class="divide-y divide-stone-100">
-            @for (r of ordenados(); track r.id) {
+            @for (r of paginaAtualRegistros(); track r.id) {
               <tr (click)="abrirDetalhe(r)" class="cursor-pointer">
                 <td class="py-2.5 px-4 code-font text-stone-500">#{{ idFmt(r) }}</td>
                 <td class="py-2.5 px-4 text-stone-500">{{ r.criadoEm | date:'dd/MM/yyyy' }}</td>
@@ -227,6 +227,30 @@ interface CardFiltro {
             }
           </tbody>
         </table>
+
+        <!-- Paginação: 20 registros por página -->
+        @if (totalPaginas() > 1) {
+          <div class="flex items-center justify-between flex-wrap gap-3 px-4 py-3 border-t border-stone-100 bg-stone-50">
+            <span class="text-xs text-stone-500">
+              Mostrando <b class="text-stone-700">{{ inicioPagina() }}–{{ fimPagina() }}</b> de <b class="text-stone-700">{{ ordenados().length }}</b> registro(s)
+            </span>
+            <div class="flex items-center gap-1">
+              <button (click)="irParaPagina(paginaAtual() - 1)" [disabled]="paginaAtual() === 1"
+                      class="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-stone-600 hover:bg-white border border-transparent hover:border-stone-200 disabled:opacity-40 disabled:pointer-events-none">‹ Anterior</button>
+              @for (p of paginasVisiveis(); track $index) {
+                @if (p === 0) {
+                  <span class="px-1.5 text-xs text-stone-400 select-none">…</span>
+                } @else {
+                  <button (click)="irParaPagina(p)"
+                          class="min-w-[32px] px-2 py-1.5 rounded-lg text-xs font-semibold code-font border transition-colors"
+                          [class]="p === paginaAtual() ? 'bg-[#E35205] text-white border-[#E35205]' : 'text-stone-600 border-transparent hover:bg-white hover:border-stone-200'">{{ p }}</button>
+                }
+              }
+              <button (click)="irParaPagina(paginaAtual() + 1)" [disabled]="paginaAtual() === totalPaginas()"
+                      class="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-stone-600 hover:bg-white border border-transparent hover:border-stone-200 disabled:opacity-40 disabled:pointer-events-none">Próxima ›</button>
+            </div>
+          </div>
+        }
       </div>
     }
 
@@ -332,6 +356,41 @@ export class ChamadosComponent {
 
   readonly exibidos = computed(() => this.filtrados().filter(this.testes[this.filtroRapido()]));
   readonly ordenados = computed(() => this.exibidos().slice().sort((a, b) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime()));
+
+  /* ---------- Paginação da tabela "Todos os registros" ---------- */
+  readonly porPagina = 20;
+  private readonly pagina = signal(1);
+  readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.ordenados().length / this.porPagina)));
+  /** Se a lista encolher (ex.: resolveu o último da página), não fica numa página que não existe mais. */
+  readonly paginaAtual = computed(() => Math.min(this.pagina(), this.totalPaginas()));
+  readonly paginaAtualRegistros = computed(() => {
+    const ini = (this.paginaAtual() - 1) * this.porPagina;
+    return this.ordenados().slice(ini, ini + this.porPagina);
+  });
+  readonly inicioPagina = computed(() => this.ordenados().length ? (this.paginaAtual() - 1) * this.porPagina + 1 : 0);
+  readonly fimPagina = computed(() => Math.min(this.paginaAtual() * this.porPagina, this.ordenados().length));
+  /** Números dos botões: primeira, última e 1 vizinha de cada lado da atual; 0 = reticências. */
+  readonly paginasVisiveis = computed<number[]>(() => {
+    const total = this.totalPaginas(), atual = this.paginaAtual();
+    const mostrar = new Set([1, total, atual - 1, atual, atual + 1]);
+    const lista: number[] = [];
+    for (let p = 1; p <= total; p++) {
+      if (!mostrar.has(p)) continue;
+      if (lista.length && p - lista[lista.length - 1] > 1) lista.push(0);
+      lista.push(p);
+    }
+    return lista;
+  });
+  irParaPagina(p: number): void {
+    this.pagina.set(Math.min(Math.max(1, p), this.totalPaginas()));
+    document.getElementById('tabela-registros')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /** Filtro/busca novos começam sempre da página 1. */
+  aplicarFiltro(): void {
+    this.pagina.set(1);
+    this.recarregar();
+  }
   readonly abertos = computed(() => this.filtrados().filter(chamadoAberto));
   readonly emTratativa = computed(() => this.filtrados().filter(r => statusChamado(r) === 'Pendente'));
   readonly naoResolvidos = computed(() => this.filtrados().filter(r => !chamadoResolvido(r)));
@@ -359,12 +418,13 @@ export class ChamadosComponent {
   }
   alternarFiltro(chave: ChaveFiltro): void {
     this.filtroRapido.set(this.filtroRapido() === chave ? '' : chave);
+    this.pagina.set(1);
     this.router.navigate([], { queryParams: { filtro: this.filtroRapido() || null }, queryParamsHandling: 'merge' });
   }
   rotuloFiltroAtivo(): string { return this.rotulosFiltro[this.filtroRapido()]; }
   corFiltroAtivo(): string { return this.coresFiltro[this.filtroRapido()]; }
 
-  limparBusca(): void { this.busca = ''; this.recarregar(); }
+  limparBusca(): void { this.busca = ''; this.aplicarFiltro(); }
 
   abrirDetalhe(r: Chamado): void { this.detalhe.set(r); }
   async mover(r: Chamado, novo: 'Pendente' | 'Resolvida'): Promise<void> { await this.servico.alterarStatus(r.id, novo); }
