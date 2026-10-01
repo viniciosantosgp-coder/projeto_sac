@@ -389,9 +389,11 @@ interface Kpi { rotulo: string; valor: string | number; cor: string; corValor: s
                       <span class="block text-[11px] text-stone-400 font-sans">prazo {{ l.prazoDias }}d{{ l.resolvido ? '' : ' · em aberto' }}</span>
                     </td>
                     <td class="py-2.5 px-4 text-center code-font font-bold text-red-600">+{{ prazoCurto(l.atrasoDias) }}</td>
-                    <td class="py-2.5 px-4">
-                      <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+                    <td class="py-2.5 px-4 whitespace-nowrap">
+                      <!-- largura fixa + sem quebra: os dois selos ficam do mesmo tamanho e alinhados -->
+                      <span class="inline-flex items-center justify-center gap-1.5 min-w-[164px] text-[11px] font-semibold px-2.5 py-1 rounded-full border"
                             [class]="l.resolvido ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'">
+                        <span class="w-1.5 h-1.5 rounded-full shrink-0" [class]="l.resolvido ? 'bg-green-500' : 'bg-red-500'"></span>
                         {{ l.resolvido ? 'Resolvido com atraso' : 'Em aberto, atrasado' }}
                       </span>
                     </td>
