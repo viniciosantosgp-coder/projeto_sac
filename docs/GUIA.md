@@ -196,8 +196,16 @@ npm start          # sobe em http://localhost:4200 (abra no navegador); recarreg
 
 ```powershell
 npx ng build
-firebase deploy --only hosting
+firebase.cmd deploy --only hosting --project sac-presenca
 ```
+
+- **`firebase.cmd`** (e não só `firebase`): no PowerShell desta máquina a execução
+  de scripts `.ps1` é bloqueada, e o `.cmd` contorna isso sem mexer na segurança.
+- **Login (só uma vez por máquina):** `firebase.cmd login`. É diferente do login do
+  Console no navegador: autoriza o programa a publicar. Conta usada: a mesma do Console.
+- **`--project sac-presenca`** sempre: a mesma conta também enxerga o `presenca26`
+  (Mesa de Análise), que é outro sistema e não deve ser tocado.
+- Conferir depois: abrir https://sac-presenca.web.app com `Ctrl + F5`.
 
 - Use **`--only hosting`**. Um `firebase deploy` completo também envia o
   `firestore.rules`, que **substitui as regras do banco**.
