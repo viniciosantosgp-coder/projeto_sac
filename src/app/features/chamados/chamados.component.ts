@@ -14,6 +14,8 @@ import { NovoChamadoComponent } from './novo-chamado.component';
 import { DetalheChamadoComponent } from './detalhe-chamado.component';
 import { NotasPainelComponent } from './notas-painel.component';
 import { NotasService } from '../../core/notas.service';
+import { criarPaginador } from '../../core/paginacao';
+import { PaginacaoComponent } from '../shell/paginacao.component';
 
 type ChaveFiltro = '' | 'abertos' | 'tratativa' | 'sla' | 'resolvidos';
 
@@ -24,7 +26,7 @@ interface CardFiltro {
 @Component({
   selector: 'app-chamados',
   standalone: true,
-  imports: [FormsModule, DatePipe, NovoChamadoComponent, DetalheChamadoComponent, NotasPainelComponent],
+  imports: [FormsModule, DatePipe, NovoChamadoComponent, DetalheChamadoComponent, NotasPainelComponent, PaginacaoComponent],
   template: `
     <div class="flex items-center justify-between flex-wrap gap-4 mb-6">
       <div>
@@ -144,7 +146,7 @@ interface CardFiltro {
       }
 
       <!-- Fila -->
-      <h2 class="text-sm font-bold text-stone-700 uppercase tracking-wider mb-3">
+      <h2 id="fila-tratamento" class="text-sm font-bold text-stone-700 uppercase tracking-wider mb-3 scroll-mt-24">
         Fila de tratamento ({{ emAndamento().length }})
         <span class="text-blue-600 normal-case font-semibold">· {{ abertos().length }} sem tratativa</span>
       </h2>
@@ -152,7 +154,7 @@ interface CardFiltro {
         @if (emAndamento().length === 0) {
           <p class="text-sm text-stone-400 py-6 text-center bg-white border border-stone-200 rounded-xl">Nenhum chamado em andamento no filtro atual.</p>
         } @else {
-          @for (r of emAndamento(); track r.id) {
+          @for (r of paginaFila.itens(); track r.id) {
             <div (click)="abrirDetalhe(r)"
                  class="card-chamado cursor-pointer bg-white border border-stone-200 border-l-4 rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap hover:bg-stone-50"
                  [class]="estourado(r) ? 'border-l-red-500' : (aberto(r) ? 'border-l-blue-500' : 'border-l-amber-500')">
@@ -182,6 +184,9 @@ interface CardFiltro {
               </div>
             </div>
           }
+          <!-- Paginação da fila: 10 por página -->
+          <app-paginacao [paginador]="paginaFila" rotulo="chamado(s) na fila" ancora="fila-tratamento"
+                         classeExtra="bg-white border border-stone-200 rounded-xl" />
         }
       </div>
 
@@ -199,7 +204,7 @@ interface CardFiltro {
             </tr>
           </thead>
           <tbody class="divide-y divide-stone-100">
-            @for (r of paginaAtualRegistros(); track r.id) {
+            @for (r of paginaTabela.itens(); track r.id) {
               <tr (click)="abrirDetalhe(r)" class="cursor-pointer">
                 <td class="py-2.5 px-4 code-font text-stone-500">#{{ idFmt(r) }}</td>
                 <td class="py-2.5 px-4 text-stone-500">{{ r.criadoEm | date:'dd/MM/yyyy' }}</td>
@@ -229,28 +234,7 @@ interface CardFiltro {
         </table>
 
         <!-- Paginação: 20 registros por página -->
-        @if (totalPaginas() > 1) {
-          <div class="flex items-center justify-between flex-wrap gap-3 px-4 py-3 border-t border-stone-100 bg-stone-50">
-            <span class="text-xs text-stone-500">
-              Mostrando <b class="text-stone-700">{{ inicioPagina() }}–{{ fimPagina() }}</b> de <b class="text-stone-700">{{ ordenados().length }}</b> registro(s)
-            </span>
-            <div class="flex items-center gap-1">
-              <button (click)="irParaPagina(paginaAtual() - 1)" [disabled]="paginaAtual() === 1"
-                      class="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-stone-600 hover:bg-white border border-transparent hover:border-stone-200 disabled:opacity-40 disabled:pointer-events-none">‹ Anterior</button>
-              @for (p of paginasVisiveis(); track $index) {
-                @if (p === 0) {
-                  <span class="px-1.5 text-xs text-stone-400 select-none">…</span>
-                } @else {
-                  <button (click)="irParaPagina(p)"
-                          class="min-w-[32px] px-2 py-1.5 rounded-lg text-xs font-semibold code-font border transition-colors"
-                          [class]="p === paginaAtual() ? 'bg-[#E35205] text-white border-[#E35205]' : 'text-stone-600 border-transparent hover:bg-white hover:border-stone-200'">{{ p }}</button>
-                }
-              }
-              <button (click)="irParaPagina(paginaAtual() + 1)" [disabled]="paginaAtual() === totalPaginas()"
-                      class="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-stone-600 hover:bg-white border border-transparent hover:border-stone-200 disabled:opacity-40 disabled:pointer-events-none">Próxima ›</button>
-            </div>
-          </div>
-        }
+        <app-paginacao [paginador]="paginaTabela" rotulo="registro(s)" ancora="tabela-registros" classeExtra="border-t border-stone-100 bg-stone-50" />
       </div>
     }
 
@@ -357,39 +341,14 @@ export class ChamadosComponent {
   readonly exibidos = computed(() => this.filtrados().filter(this.testes[this.filtroRapido()]));
   readonly ordenados = computed(() => this.exibidos().slice().sort((a, b) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime()));
 
-  /* ---------- Paginação da tabela "Todos os registros" ---------- */
-  readonly porPagina = 20;
-  private readonly pagina = signal(1);
-  readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.ordenados().length / this.porPagina)));
-  /** Se a lista encolher (ex.: resolveu o último da página), não fica numa página que não existe mais. */
-  readonly paginaAtual = computed(() => Math.min(this.pagina(), this.totalPaginas()));
-  readonly paginaAtualRegistros = computed(() => {
-    const ini = (this.paginaAtual() - 1) * this.porPagina;
-    return this.ordenados().slice(ini, ini + this.porPagina);
-  });
-  readonly inicioPagina = computed(() => this.ordenados().length ? (this.paginaAtual() - 1) * this.porPagina + 1 : 0);
-  readonly fimPagina = computed(() => Math.min(this.paginaAtual() * this.porPagina, this.ordenados().length));
-  /** Números dos botões: primeira, última e 1 vizinha de cada lado da atual; 0 = reticências. */
-  readonly paginasVisiveis = computed<number[]>(() => {
-    const total = this.totalPaginas(), atual = this.paginaAtual();
-    const mostrar = new Set([1, total, atual - 1, atual, atual + 1]);
-    const lista: number[] = [];
-    for (let p = 1; p <= total; p++) {
-      if (!mostrar.has(p)) continue;
-      if (lista.length && p - lista[lista.length - 1] > 1) lista.push(0);
-      lista.push(p);
-    }
-    return lista;
-  });
-  irParaPagina(p: number): void {
-    this.pagina.set(Math.min(Math.max(1, p), this.totalPaginas()));
-    document.getElementById('tabela-registros')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  /** Filtro/busca novos começam sempre da página 1. */
+  /** Filtro/busca novos começam sempre da página 1 (nas duas listas). */
   aplicarFiltro(): void {
-    this.pagina.set(1);
+    this.voltarParaPrimeiraPagina();
     this.recarregar();
+  }
+  private voltarParaPrimeiraPagina(): void {
+    this.paginaFila.reiniciar();
+    this.paginaTabela.reiniciar();
   }
   readonly abertos = computed(() => this.filtrados().filter(chamadoAberto));
   readonly emTratativa = computed(() => this.filtrados().filter(r => statusChamado(r) === 'Pendente'));
@@ -400,6 +359,10 @@ export class ChamadosComponent {
     if (chamadoAberto(a) !== chamadoAberto(b)) return chamadoAberto(a) ? -1 : 1;
     return new Date(a.criadoEm).getTime() - new Date(b.criadoEm).getTime();
   }));
+
+  /* Paginação: a fila mostra 10 por página e a tabela "Todos os registros", 20 */
+  readonly paginaFila = criarPaginador(() => this.emAndamento(), 10);
+  readonly paginaTabela = criarPaginador(() => this.ordenados(), 20);
 
   readonly cards = computed<CardFiltro[]>(() => {
     const estourados = this.naoResolvidos().filter(slaEstourado).length;
@@ -418,7 +381,7 @@ export class ChamadosComponent {
   }
   alternarFiltro(chave: ChaveFiltro): void {
     this.filtroRapido.set(this.filtroRapido() === chave ? '' : chave);
-    this.pagina.set(1);
+    this.voltarParaPrimeiraPagina();
     this.router.navigate([], { queryParams: { filtro: this.filtroRapido() || null }, queryParamsHandling: 'merge' });
   }
   rotuloFiltroAtivo(): string { return this.rotulosFiltro[this.filtroRapido()]; }
