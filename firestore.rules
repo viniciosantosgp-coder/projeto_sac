@@ -21,6 +21,19 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Ouvidoria: gravada só pela API (ouvidoria-api, com conta de serviço, que ignora estas regras).
+    // O navegador não lê nem grava direto; a tela passa sempre pela API.
+    match /ouvidoria_chamados/{documento=**} {
+      allow read, write: if false;
+    }
+    match /ouvidoria_config/{documento} {
+      allow read, write: if false;
+    }
+    // Credenciais de terceiros (só o hash do segredo). Gerenciadas pelas rotas /api/admin da API.
+    match /ouvidoria_clientes/{documento} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

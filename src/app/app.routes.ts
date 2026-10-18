@@ -18,5 +18,11 @@ export const ROTAS: Routes = [
     data: { exigeVisaoGeral: true },
     loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent)
   },
+  {
+    // tela ligada à API da ouvidoria (local: ver proxy.conf.mjs)
+    path: 'ouvidoria',
+    canActivate: [guardaSessao],
+    loadComponent: () => import('./features/ouvidoria/ouvidoria.component').then(m => m.OuvidoriaComponent)
+  },
   { path: '**', redirectTo: 'chamados' }
 ];

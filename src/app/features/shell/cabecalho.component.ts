@@ -1,7 +1,10 @@
-import { Component, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, ElementRef, HostListener, inject, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs';
 import { SessaoService } from '../../core/sessao.service';
 import { TemaService } from '../../core/tema.service';
+import { OuvidoriaApiService } from '../../core/ouvidoria-api.service';
 
 @Component({
   selector: 'app-cabecalho',
@@ -13,18 +16,37 @@ import { TemaService } from '../../core/tema.service';
         <div class="flex items-center gap-3 sm:gap-8 min-w-0">
           <a routerLink="/chamados" class="text-2xl sm:text-3xl logo-presenca text-[#E35205] cursor-pointer shrink-0">Presença</a>
           <nav class="flex items-center gap-3 sm:gap-6 text-sm font-medium text-stone-600">
-            <a routerLink="/chamados" routerLinkActive="text-[#E35205] font-semibold"
+            <!-- Menu SAC: agrupa Chamados e Dashboard -->
+            <div class="relative" data-menu-sac>
+              <button type="button" (click)="sacAberto.set(!sacAberto())"
+                      class="flex items-center gap-1.5 hover:text-[#E35205] transition-colors"
+                      [class]="rotaSac() ? 'text-[#E35205] font-semibold' : 'text-stone-600'">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 256 256" class="shrink-0"><path d="M222.37,158.46l-47.11-21.11-.13-.06a16,16,0,0,0-15.17,1.4,8.12,8.12,0,0,0-.75.56L134.87,160c-15.42-7.49-31.34-23.29-38.83-38.51l20.78-24.71c.2-.25.39-.5.57-.77a16,16,0,0,0,1.32-15.06v-.12L97.54,33.64a16,16,0,0,0-16.62-9.52A56.26,56.26,0,0,0,32,80c0,79.4,64.6,144,144,144a56.26,56.26,0,0,0,55.88-48.92A16,16,0,0,0,222.37,158.46Z"/></svg>
+                <span>SAC</span>
+                <svg width="12" height="12" fill="currentColor" viewBox="0 0 256 256" class="shrink-0 transition-transform" [class.rotate-180]="sacAberto()"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></svg>
+              </button>
+              @if (sacAberto()) {
+                <div class="absolute left-0 top-full mt-3 w-52 bg-white border border-stone-200 rounded-xl shadow-lg py-1.5 z-50">
+                  <a routerLink="/chamados" routerLinkActive="text-[#E35205] font-semibold bg-orange-50/60"
+                     class="flex items-center gap-2 px-4 py-2 text-stone-600 hover:bg-stone-50 hover:text-[#E35205] transition-colors">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 256 256" class="shrink-0"><path d="M222.37,158.46l-47.11-21.11-.13-.06a16,16,0,0,0-15.17,1.4,8.12,8.12,0,0,0-.75.56L134.87,160c-15.42-7.49-31.34-23.29-38.83-38.51l20.78-24.71c.2-.25.39-.5.57-.77a16,16,0,0,0,1.32-15.06v-.12L97.54,33.64a16,16,0,0,0-16.62-9.52A56.26,56.26,0,0,0,32,80c0,79.4,64.6,144,144,144a56.26,56.26,0,0,0,55.88-48.92A16,16,0,0,0,222.37,158.46Z"/></svg>
+                    Chamados SAC
+                  </a>
+                  @if (sessao.temVisaoGeral()) {
+                    <a routerLink="/dashboard" routerLinkActive="text-[#E35205] font-semibold bg-orange-50/60"
+                       class="flex items-center gap-2 px-4 py-2 text-stone-600 hover:bg-stone-50 hover:text-[#E35205] transition-colors">
+                      <svg width="16" height="16" fill="currentColor" viewBox="0 0 256 256" class="shrink-0"><path d="M224,200h-8V40a8,8,0,0,0-8-8H152a8,8,0,0,0-8,8V72H96a8,8,0,0,0-8,8v40H48a8,8,0,0,0-8,8v72H32a8,8,0,0,0,0,16H224a8,8,0,0,0,0-16Z"/></svg>
+                      Dashboard SAC
+                    </a>
+                  }
+                </div>
+              }
+            </div>
+            <a routerLink="/ouvidoria" routerLinkActive="text-[#E35205] font-semibold"
                class="flex items-center gap-1.5 text-stone-600 hover:text-[#E35205] transition-colors">
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 256 256" class="shrink-0"><path d="M222.37,158.46l-47.11-21.11-.13-.06a16,16,0,0,0-15.17,1.4,8.12,8.12,0,0,0-.75.56L134.87,160c-15.42-7.49-31.34-23.29-38.83-38.51l20.78-24.71c.2-.25.39-.5.57-.77a16,16,0,0,0,1.32-15.06v-.12L97.54,33.64a16,16,0,0,0-16.62-9.52A56.26,56.26,0,0,0,32,80c0,79.4,64.6,144,144,144a56.26,56.26,0,0,0,55.88-48.92A16,16,0,0,0,222.37,158.46Z"/></svg>
-              <span class="hidden sm:inline">Chamados SAC</span><span class="sm:hidden">Chamados</span>
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 256 256" class="shrink-0"><path d="M201.89,54.66A103.43,103.43,0,0,0,128.79,24H128A104,104,0,0,0,24,128v56a24,24,0,0,0,24,24H64a24,24,0,0,0,24-24V144a24,24,0,0,0-24-24H40.36A88.12,88.12,0,0,1,190.54,65.93,87.39,87.39,0,0,1,215.65,120H192a24,24,0,0,0-24,24v40a24,24,0,0,0,24,24h24a24,24,0,0,1-24,24H136a8,8,0,0,0,0,16h56a40,40,0,0,0,40-40V128A103.41,103.41,0,0,0,201.89,54.66ZM64,136a8,8,0,0,1,8,8v40a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V136Zm128,56a8,8,0,0,1-8-8V144a8,8,0,0,1,8-8h24v56Z"/></svg>
+              <span>Ouvidoria</span>
             </a>
-            @if (sessao.temVisaoGeral()) {
-              <a routerLink="/dashboard" routerLinkActive="text-[#E35205] font-semibold"
-                 class="flex items-center gap-1.5 text-stone-600 hover:text-[#E35205] transition-colors">
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 256 256" class="shrink-0"><path d="M224,200h-8V40a8,8,0,0,0-8-8H152a8,8,0,0,0-8,8V72H96a8,8,0,0,0-8,8v40H48a8,8,0,0,0-8,8v72H32a8,8,0,0,0,0,16H224a8,8,0,0,0,0-16Z"/></svg>
-                <span class="hidden sm:inline">Dashboard SAC</span><span class="sm:hidden">Painel</span>
-              </a>
-            }
           </nav>
         </div>
         <div class="flex items-center gap-3 sm:gap-4 shrink-0">
@@ -49,4 +71,35 @@ import { TemaService } from '../../core/tema.service';
 export class CabecalhoComponent {
   readonly sessao = inject(SessaoService);
   readonly tema = inject(TemaService);
+  private router = inject(Router);
+  private el = inject(ElementRef<HTMLElement>);
+
+  /** Dropdown "SAC" aberto? */
+  readonly sacAberto = signal(false);
+  /** true quando a tela atual é do SAC (deixa o botão "SAC" laranja). */
+  readonly rotaSac = signal(false);
+
+  constructor() {
+    inject(OuvidoriaApiService).acordar();   // a API da ouvidoria demora a acordar: já começa agora
+    this.marcarRota();
+    this.router.events.pipe(filter(e => e instanceof NavigationEnd), takeUntilDestroyed()).subscribe(() => {
+      this.marcarRota();
+      this.sacAberto.set(false);   // escolheu uma tela: fecha o menu
+    });
+  }
+
+  private marcarRota(): void {
+    const url = this.router.url;
+    this.rotaSac.set(url.startsWith('/chamados') || url.startsWith('/dashboard'));
+  }
+
+  /** Clique fora do menu ou Esc: fecha. */
+  @HostListener('document:click', ['$event'])
+  aoClicarFora(ev: MouseEvent): void {
+    const menu = (this.el.nativeElement as HTMLElement).querySelector('[data-menu-sac]');
+    if (this.sacAberto() && menu && !menu.contains(ev.target as Node)) this.sacAberto.set(false);
+  }
+
+  @HostListener('document:keydown.escape')
+  aoEsc(): void { this.sacAberto.set(false); }
 }

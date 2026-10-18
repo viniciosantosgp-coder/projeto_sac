@@ -15,7 +15,7 @@ npm start            # http://localhost:4200
 ```bash
 npm install
 npm run build        # gera dist/sac/browser
-firebase deploy --only hosting,firestore:rules --project presenca26
+firebase deploy --only hosting,firestore --project sac-presenca
 ```
 
 O `firebase.json` já aponta o Hosting para `dist/sac/browser`, com `no-cache` no index e
@@ -41,6 +41,7 @@ src/app/
     shell/               cabeçalho e navegação
     chamados/            lista, fila, filtros, modais de novo chamado e detalhe
     dashboard/           indicadores, SLA por gravidade, produção e gráfico de rosca
+    ouvidoria/           manifestações da ouvidoria (lidas e gravadas pela ouvidoria-api, não direto no Firestore)
 ```
 
 ## Decisões que vieram da versão anterior
