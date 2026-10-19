@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, computed, inject, signal, HostListener } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, computed, inject, signal, HostListener } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { Chamado, EventoStatus } from '../../core/modelos';
@@ -8,6 +8,8 @@ import {
   slaDiasPara, slaVencimento, statusChamado, textoSla
 } from '../../core/dominio';
 import { SAC_CORES_GRAVIDADE, SAC_STATUS_CORES, SAC_STATUS_LABEL } from '../../core/constantes';
+import { ClienteService, HistoricoCliente } from '../../core/cliente.service';
+import { chaveCpf } from '../../core/cpf';
 
 interface ItemHistorico { data: string; texto: string; original: boolean; }
 
@@ -49,6 +51,21 @@ interface ItemHistorico { data: string; texto: string; original: boolean; }
             <div class="sm:col-span-2"><span class="text-stone-400">Início da tratativa:</span>
               <span class="font-semibold text-stone-700 code-font">{{ inicioTratativa() }}</span></div>
           </div>
+
+          <!-- Cruzamento com a Ouvidoria pelo CPF -->
+          @if (cruzamento(); as x) {
+            <div class="flex items-center justify-between gap-3 flex-wrap rounded-xl px-4 py-2.5 text-sm mb-5 border"
+                 [class]="x.ouvidoria.length ? 'bg-violet-50 border-violet-200 text-violet-800' : 'bg-stone-50 border-stone-200 text-stone-500'">
+              <span>
+                @if (x.ouvidoria.length) {
+                  <b>Ouvidoria:</b> {{ x.ouvidoria.length }} manifestação(ões) deste CPF
+                  · {{ x.ouvidoriaAbertos ? x.ouvidoriaAbertos + ' em aberto' : 'todas tratadas' }}
+                } @else { Ouvidoria: nenhuma manifestação deste CPF. }
+                @if (x.sac.length > 1) { · SAC: {{ x.sac.length }} chamados no total }
+              </span>
+              <button (click)="verCliente()" class="text-xs font-semibold underline hover:no-underline">Ver histórico do cliente</button>
+            </div>
+          }
 
           <label class="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1.5">Histórico de status (gravado)</label>
           <div class="bg-stone-50 border border-stone-200 rounded-lg p-3 text-sm mb-5 max-h-40 overflow-y-auto">
@@ -113,12 +130,25 @@ interface ItemHistorico { data: string; texto: string; original: boolean; }
     </div>
   `
 })
-export class DetalheChamadoComponent {
+export class DetalheChamadoComponent implements OnInit {
   /** Esc fecha o modal — o clique fora já fechava. */
   @HostListener('document:keydown.escape')
   aoPressionarEsc(): void { this.fechar.emit(); }
 
   private servico = inject(ChamadosService);
+  private cliente = inject(ClienteService);
+
+  /** O que o CPF deste chamado tem no SAC e na Ouvidoria (só quando há CPF). */
+  readonly cruzamento = signal<HistoricoCliente | null>(null);
+
+  ngOnInit(): void {
+    if (chaveCpf(this.chamado.cpf)) this.cliente.historico(this.chamado.cpf).then(h => this.cruzamento.set(h)).catch(() => {});
+  }
+
+  verCliente(): void {
+    this.fechar.emit();
+    this.cliente.abrirPainel(this.chamado.cpf);
+  }
 
   @Input({ required: true }) chamado!: Chamado;
   @Output() fechar = new EventEmitter<void>();

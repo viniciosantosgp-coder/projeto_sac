@@ -41,7 +41,7 @@ src/app/
     shell/               cabeçalho e navegação
     chamados/            lista, fila, filtros, modais de novo chamado e detalhe
     dashboard/           indicadores, SLA por gravidade, produção e gráfico de rosca
-    ouvidoria/           manifestações da ouvidoria (lidas e gravadas pela ouvidoria-api, não direto no Firestore)
+    ouvidoria/           manifestações da ouvidoria (Firestore ouvidoria_chamados, mesmo esquema da ouvidoria-api)
 ```
 
 ## Decisões que vieram da versão anterior

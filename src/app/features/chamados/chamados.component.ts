@@ -16,6 +16,8 @@ import { NotasPainelComponent } from './notas-painel.component';
 import { NotasService } from '../../core/notas.service';
 import { criarPaginador } from '../../core/paginacao';
 import { PaginacaoComponent } from '../shell/paginacao.component';
+import { ClienteService } from '../../core/cliente.service';
+import { chaveCpf } from '../../core/cpf';
 
 type ChaveFiltro = '' | 'abertos' | 'tratativa' | 'sla' | 'resolvidos';
 
@@ -168,6 +170,10 @@ interface CardFiltro {
                   @if (responsavel(r)) {
                     <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 border border-stone-200">com {{ responsavel(r) }}</span>
                   }
+                  @if (naOuvidoria(r)) {
+                    <span (click)="$event.stopPropagation(); verCliente(r)" title="Este CPF tem manifestação na Ouvidoria — ver histórico do cliente"
+                          class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100">Ouvidoria</span>
+                  }
                 </div>
                 <p class="text-sm text-stone-700">{{ r.descricao || r.categoria || '—' }}</p>
                 <p class="text-xs text-stone-400 mt-1">
@@ -211,7 +217,12 @@ interface CardFiltro {
           <tbody class="divide-y divide-stone-100">
             @for (r of paginaTabela.itens(); track r.id) {
               <tr (click)="abrirDetalhe(r)" class="cursor-pointer align-middle">
-                <td class="py-3 px-3 code-font text-stone-500 whitespace-nowrap">#{{ idFmt(r) }}</td>
+                <td class="py-3 px-3 code-font text-stone-500 whitespace-nowrap">#{{ idFmt(r) }}
+                  @if (naOuvidoria(r)) {
+                    <span (click)="$event.stopPropagation(); verCliente(r)" title="Este CPF tem manifestação na Ouvidoria — ver histórico do cliente"
+                          class="ml-1 font-sans text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">Ouv</span>
+                  }
+                </td>
                 <td class="py-3 px-3 text-stone-500 whitespace-nowrap">{{ r.criadoEm | date:'dd/MM/yyyy' }}</td>
                 <td class="py-3 px-3">
                   <span class="inline-block max-w-full truncate align-middle text-[11px] font-semibold px-2 py-0.5 rounded-full bg-stone-100 text-stone-600" [title]="r.produto">{{ r.produto }}</span>
@@ -265,6 +276,11 @@ interface CardFiltro {
 export class ChamadosComponent {
   readonly servico = inject(ChamadosService);
   readonly sessao = inject(SessaoService);
+  private cliente = inject(ClienteService);
+
+  /** CPF do chamado tem manifestação na Ouvidoria? */
+  naOuvidoria(r: Chamado): boolean { const c = chaveCpf(r.cpf); return !!c && this.cliente.cpfsOuvidoria().has(c); }
+  verCliente(r: Chamado): void { this.cliente.abrirPainel(r.cpf); }
   private notasService = inject(NotasService);
   private rota = inject(ActivatedRoute);
   private router = inject(Router);

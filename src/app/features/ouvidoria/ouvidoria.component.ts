@@ -1,15 +1,20 @@
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, HostListener, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
+import { ClienteService, HistoricoCliente } from '../../core/cliente.service';
+import { SessaoService } from '../../core/sessao.service';
+import { chaveCpf, formatarCpf } from '../../core/cpf';
 import {
-  ChamadoOuv, ErroOuv, NovoChamadoOuv, OuvidoriaApiService, ResumoOuv, STATUS_OUV, StatusOuv, TIPOS_OUV, TipoOuv
-} from '../../core/ouvidoria-api.service';
+  ChamadoOuv, ErroOuv, NovoChamadoOuv, OuvidoriaService, ResumoOuv, STATUS_OUV, StatusOuv, TIPOS_OUV, TipoOuv
+} from '../../core/ouvidoria.service';
 import { Paginador } from '../../core/paginacao';
 import { PaginacaoComponent } from '../shell/paginacao.component';
 
 /**
- * Ouvidoria ligada à API.
- * A lista, os cards por status e a paginação vêm da rota GET /api/chamados.
+ * Ouvidoria lida direto do Firestore do SAC (ver ouvidoria.service.ts).
+ * A lista se atualiza sozinha quando a coleção muda (outro usuário ou a ouvidoria-api).
  */
 @Component({
   selector: 'app-ouvidoria',
@@ -22,7 +27,12 @@ import { PaginacaoComponent } from '../shell/paginacao.component';
         <h1 class="text-2xl font-extrabold text-stone-900 tracking-tight">Ouvidoria</h1>
         <p class="text-stone-500 text-sm mt-1">Manifestações registradas na ouvidoria · protocolo no formato OUV-AAAA-000000.</p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
+        <button (click)="exportarPdf()" [disabled]="exportando()" title="Relatório em PDF com o período e os filtros aplicados"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M224,152a8,8,0,0,1-8,8H192v16h16a8,8,0,0,1,0,16H192v16a8,8,0,0,1-16,0V152a8,8,0,0,1,8-8h32A8,8,0,0,1,224,152ZM92,172a28,28,0,0,1-28,28H56v8a8,8,0,0,1-16,0V152a8,8,0,0,1,8-8H64A28,28,0,0,1,92,172Zm-16,0a12,12,0,0,0-12-12H56v24h8A12,12,0,0,0,76,172Zm88,8a36,36,0,0,1-36,36H112a8,8,0,0,1-8-8V152a8,8,0,0,1,8-8h16A36,36,0,0,1,164,180Zm-16,0a20,20,0,0,0-20-20h-8v40h8A20,20,0,0,0,148,180ZM40,112V40A16,16,0,0,1,56,24h96a8,8,0,0,1,5.66,2.34l56,56A8,8,0,0,1,216,88v24a8,8,0,0,1-16,0V96H152a8,8,0,0,1-8-8V40H56v72a8,8,0,0,1-16,0ZM160,80h28.69L160,51.31Z"/></svg>
+          {{ exportando() ? 'Gerando PDF...' : 'Exportar PDF' }}
+        </button>
         <button (click)="abrirNovo()" class="inline-flex items-center gap-2 px-4 py-2 bg-[#E35205] hover:bg-[#c44503] text-white rounded-lg text-sm font-semibold transition-colors">
           <svg width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg>
           Registrar manifestação
@@ -37,12 +47,31 @@ import { PaginacaoComponent } from '../shell/paginacao.component';
       </div>
     }
 
-    <!-- Busca -->
+    <!-- Período + busca -->
     <div class="flex flex-wrap items-end gap-3 mb-6">
+      <div>
+        <label class="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Período de abertura</label>
+        <div class="flex items-center gap-2">
+          <div class="campo-periodo flex items-stretch bg-white border border-stone-200 rounded-lg overflow-hidden">
+            <div class="px-3 py-1.5">
+              <span class="block text-[10px] font-bold text-stone-400 uppercase tracking-wider leading-none mb-0.5">Início</span>
+              <input type="date" [(ngModel)]="dataInicio" (ngModelChange)="aplicarPeriodo()" [max]="dataFim || null" class="text-sm code-font">
+            </div>
+            <div class="self-center text-stone-300 select-none px-0.5">→</div>
+            <div class="px-3 py-1.5">
+              <span class="block text-[10px] font-bold text-stone-400 uppercase tracking-wider leading-none mb-0.5">Fim</span>
+              <input type="date" [(ngModel)]="dataFim" (ngModelChange)="aplicarPeriodo()" [min]="dataInicio || null" class="text-sm code-font">
+            </div>
+          </div>
+          @if (dataInicio || dataFim) {
+            <button (click)="dataInicio = ''; dataFim = ''; aplicarPeriodo()" class="text-xs font-semibold text-stone-400 hover:text-stone-700">limpar</button>
+          }
+        </div>
+      </div>
       <div class="w-full sm:w-auto">
         <label class="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Buscar</label>
         <div class="flex items-center gap-2">
-          <input [(ngModel)]="busca" (keydown.enter)="buscar()" type="text" placeholder="Protocolo, assunto, nome ou e-mail"
+          <input [(ngModel)]="busca" (keydown.enter)="buscar()" type="text" placeholder="Protocolo, CPF, assunto, nome ou e-mail"
                  class="border border-stone-200 rounded-lg px-3 py-2 text-sm w-full sm:w-[300px]">
           <button (click)="buscar()" [disabled]="carregando()"
                   class="px-4 py-2 bg-stone-800 hover:bg-stone-900 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50">Buscar</button>
@@ -77,6 +106,7 @@ import { PaginacaoComponent } from '../shell/paginacao.component';
       Manifestações ({{ total() }})
       @if (filtroStatus()) { <span class="normal-case font-semibold text-stone-400">· {{ rotuloStatus(filtroStatus()!) }}</span> }
       @if (buscaAplicada()) { <span class="normal-case font-semibold text-stone-400">· busca "{{ buscaAplicada() }}"</span> }
+      @if (dataInicio || dataFim) { <span class="normal-case font-semibold text-stone-400">· abertas {{ textoPeriodo() }}</span> }
     </h2>
 
     @if (carregando() && !itens().length) {
@@ -101,7 +131,8 @@ import { PaginacaoComponent } from '../shell/paginacao.component';
                 <td class="py-3 px-3 text-stone-500 truncate">{{ rotuloTipo(c.tipo) }}</td>
                 <td class="py-3 px-3 text-stone-600">
                   <div class="truncate" [title]="c.solicitanteNome || ''">{{ c.solicitanteNome || '—' }}</div>
-                  @if (c.solicitanteEmail) { <div class="text-[11px] text-stone-400 truncate" [title]="c.solicitanteEmail">{{ c.solicitanteEmail }}</div> }
+                  @if (c.solicitanteCpf) { <div class="text-[11px] text-stone-400 code-font truncate">CPF {{ fmtCpf(c.solicitanteCpf) }}</div> }
+                  @else if (c.solicitanteEmail) { <div class="text-[11px] text-stone-400 truncate" [title]="c.solicitanteEmail">{{ c.solicitanteEmail }}</div> }
                 </td>
                 <td class="py-3 px-3 text-stone-500 whitespace-nowrap">{{ c.atualizadoEm | date:'dd/MM/yy HH:mm' }}</td>
                 <td class="py-3 px-3 whitespace-nowrap">
@@ -136,8 +167,22 @@ import { PaginacaoComponent } from '../shell/paginacao.component';
               <div><p class="text-[11px] font-bold text-stone-400 uppercase tracking-wider">Aberto em</p><p class="text-stone-700">{{ c.criadoEm | date:'dd/MM/yyyy HH:mm' }}</p></div>
               <div><p class="text-[11px] font-bold text-stone-400 uppercase tracking-wider">Atualizado em</p><p class="text-stone-700">{{ c.atualizadoEm | date:'dd/MM/yyyy HH:mm' }}</p></div>
               <div><p class="text-[11px] font-bold text-stone-400 uppercase tracking-wider">Solicitante</p><p class="text-stone-700">{{ c.solicitanteNome || '—' }}</p></div>
-              <div class="col-span-2"><p class="text-[11px] font-bold text-stone-400 uppercase tracking-wider">E-mail</p><p class="text-stone-700 break-all">{{ c.solicitanteEmail || '—' }}</p></div>
+              <div><p class="text-[11px] font-bold text-stone-400 uppercase tracking-wider">CPF</p><p class="text-stone-700 code-font">{{ c.solicitanteCpf ? fmtCpf(c.solicitanteCpf) : '—' }}</p></div>
+              <div class="col-span-2 sm:col-span-1"><p class="text-[11px] font-bold text-stone-400 uppercase tracking-wider">E-mail</p><p class="text-stone-700 break-all">{{ c.solicitanteEmail || '—' }}</p></div>
             </div>
+
+            <!-- Cruzamento com o SAC pelo CPF -->
+            @if (cruzamento(); as x) {
+              <div class="flex items-center justify-between gap-3 flex-wrap rounded-xl px-4 py-2.5 text-sm border"
+                   [class]="x.sac.length ? 'bg-orange-50 border-orange-200 text-orange-800' : 'bg-stone-50 border-stone-200 text-stone-500'">
+                <span>
+                  @if (x.sac.length) {
+                    <b>SAC:</b> {{ x.sac.length }} chamado(s) deste CPF · {{ x.sacAbertos ? x.sacAbertos + ' em aberto' : 'todos resolvidos' }}
+                  } @else { SAC: nenhum chamado deste CPF. }
+                </span>
+                <button (click)="verCliente(c.solicitanteCpf!)" class="text-xs font-semibold underline hover:no-underline">Ver histórico do cliente</button>
+              </div>
+            }
 
             <div>
               <p class="text-[11px] font-bold text-stone-400 uppercase tracking-wider mb-1">Assunto</p>
@@ -223,6 +268,13 @@ import { PaginacaoComponent } from '../shell/paginacao.component';
               <textarea [(ngModel)]="form.descricao" rows="4" class="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm resize-none"
                         placeholder="O que o cliente relatou"></textarea>
             </div>
+            <div>
+              <label class="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">CPF do solicitante</label>
+              <input [(ngModel)]="form.solicitanteCpf" maxlength="14" type="text" inputmode="numeric" placeholder="000.000.000-00"
+                     class="w-full border rounded-lg px-3 py-2 text-sm code-font" [class]="erroCampo('solicitanteCpf') ? 'border-red-400' : 'border-stone-200'">
+              <span class="text-[11px] text-red-600">{{ erroCampo('solicitanteCpf') }}</span>
+              @if (!erroCampo('solicitanteCpf')) { <span class="text-[11px] text-stone-400">Liga a manifestação aos chamados do SAC do mesmo cliente.</span> }
+            </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label class="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Nome do solicitante</label>
@@ -257,7 +309,14 @@ import { PaginacaoComponent } from '../shell/paginacao.component';
   `
 })
 export class OuvidoriaComponent {
-  private api = inject(OuvidoriaApiService);
+  private api = inject(OuvidoriaService);
+  private cliente = inject(ClienteService);
+  private sessao = inject(SessaoService);
+  private rota = inject(ActivatedRoute);
+  private router = inject(Router);
+
+  /** O que o CPF da manifestação aberta tem no SAC. */
+  readonly cruzamento = signal<HistoricoCliente | null>(null);
 
   readonly status = STATUS_OUV;
   readonly tipos = TIPOS_OUV;
@@ -267,7 +326,7 @@ export class OuvidoriaComponent {
   readonly erro = signal('');
   readonly aviso = signal('');
 
-  /* ---------- Lista (vem paginada da API) ---------- */
+  /* ---------- Lista (filtrada e paginada a partir do Firestore) ---------- */
   private static readonly POR_PAGINA = 10;
   readonly itens = signal<ResumoOuv[]>([]);
   readonly total = signal(0);
@@ -308,8 +367,17 @@ export class OuvidoriaComponent {
   })();
 
   constructor() {
-    this.carregar();
+    // primeira carga e cada atualização da coleção no Firestore
+    effect(() => { this.api.versao(); untracked(() => this.carregar()); });
+    // veio do "Histórico do cliente": /ouvidoria?protocolo=OUV-...
+    this.rota.queryParamMap.pipe(takeUntilDestroyed()).subscribe(q => {
+      const p = q.get('protocolo');
+      if (p) { this.verDetalhe(p); this.router.navigate([], { queryParams: { protocolo: null }, queryParamsHandling: 'merge', replaceUrl: true }); }
+    });
   }
+
+  verCliente(cpf: string): void { this.fecharDetalhe(); this.cliente.abrirPainel(cpf); }
+  fmtCpf(cpf: string): string { return formatarCpf(cpf); }
 
   @HostListener('document:keydown.escape')
   aoEsc(): void { this.fecharDetalhe(); this.novoAberto.set(false); }
@@ -318,7 +386,7 @@ export class OuvidoriaComponent {
     this.carregando.set(true);
     try {
       const r = await this.api.listar({
-        status: this.filtroStatus(), busca: this.buscaAplicada(),
+        status: this.filtroStatus(), busca: this.buscaAplicada(), de: this.dataInicio, ate: this.dataFim,
         pagina: this.paginaAtual(), tamanho: OuvidoriaComponent.POR_PAGINA
       });
       this.itens.set(r.itens);
@@ -343,6 +411,41 @@ export class OuvidoriaComponent {
     this.carregar();
   }
 
+  /* ---------- Período (data de abertura) ---------- */
+  dataInicio = '';
+  dataFim = '';
+
+  aplicarPeriodo(): void {
+    this.pagina.reiniciar();
+    this.carregar();
+  }
+
+  textoPeriodo(): string {
+    const br = (d: string) => d.split('-').reverse().join('/');
+    if (this.dataInicio && this.dataFim) return `de ${br(this.dataInicio)} a ${br(this.dataFim)}`;
+    return this.dataInicio ? `desde ${br(this.dataInicio)}` : `até ${br(this.dataFim)}`;
+  }
+
+  /* ---------- Relatório em PDF ---------- */
+  readonly exportando = signal(false);
+
+  /** Exporta todas as manifestações do filtro atual (período, status e busca), não só a página visível. */
+  async exportarPdf(): Promise<void> {
+    this.exportando.set(true);
+    this.erro.set('');
+    try {
+      await this.api.iniciar();
+      const filtro = { status: this.filtroStatus(), busca: this.buscaAplicada(), de: this.dataInicio, ate: this.dataFim };
+      const { exportarRelatorioOuvidoria } = await import('../../core/ouvidoria-relatorio');
+      await exportarRelatorioOuvidoria(this.api.filtrados(filtro), { ...filtro, geradoPor: this.sessao.nomeUsuario() });
+    } catch (e) {
+      console.warn('Falha ao gerar o PDF:', (e as Error).message);
+      this.erro.set('Não foi possível gerar o PDF agora. Tente de novo.');
+    } finally {
+      this.exportando.set(false);
+    }
+  }
+
   /* ---------- Detalhe / alterar status ---------- */
   readonly sel = signal<ChamadoOuv | null>(null);
   novoStatus: StatusOuv | null = null;
@@ -362,6 +465,8 @@ export class OuvidoriaComponent {
     this.novoStatus = c.status;
     this.observacao = '';
     this.sel.set(c);
+    this.cruzamento.set(null);
+    if (chaveCpf(c.solicitanteCpf)) this.cliente.historico(c.solicitanteCpf!).then(h => this.cruzamento.set(h)).catch(() => {});
   }
   fecharDetalhe(): void { this.sel.set(null); }
 
@@ -385,9 +490,9 @@ export class OuvidoriaComponent {
   /* ---------- Registrar ---------- */
   readonly novoAberto = signal(false);
   readonly camposErro = signal<Record<string, string[]>>({});
-  form: { assunto: string; descricao: string; tipo: TipoOuv | null; solicitanteNome: string; solicitanteEmail: string } = this.formVazio();
+  form: { assunto: string; descricao: string; tipo: TipoOuv | null; solicitanteNome: string; solicitanteEmail: string; solicitanteCpf: string } = this.formVazio();
 
-  private formVazio() { return { assunto: '', descricao: '', tipo: null, solicitanteNome: '', solicitanteEmail: '' }; }
+  private formVazio() { return { assunto: '', descricao: '', tipo: null, solicitanteNome: '', solicitanteEmail: '', solicitanteCpf: '' }; }
 
   abrirNovo(): void {
     this.form = this.formVazio();
@@ -404,7 +509,8 @@ export class OuvidoriaComponent {
       descricao: this.form.descricao.trim() || null,
       tipo: this.form.tipo,
       solicitanteNome: this.form.solicitanteNome.trim() || null,
-      solicitanteEmail: this.form.solicitanteEmail.trim() || null
+      solicitanteEmail: this.form.solicitanteEmail.trim() || null,
+      solicitanteCpf: this.form.solicitanteCpf.trim() || null
     };
     try {
       const criado = await this.api.abrir(dados);

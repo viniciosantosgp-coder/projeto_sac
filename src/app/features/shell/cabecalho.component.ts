@@ -4,12 +4,14 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 import { SessaoService } from '../../core/sessao.service';
 import { TemaService } from '../../core/tema.service';
-import { OuvidoriaApiService } from '../../core/ouvidoria-api.service';
+import { OuvidoriaService } from '../../core/ouvidoria.service';
+import { ClienteService } from '../../core/cliente.service';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-cabecalho',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, FormsModule],
   template: `
     <header class="bg-white sticky top-0 z-40 border-b border-stone-200 shadow-sm">
       <div class="max-w-[1400px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
@@ -50,6 +52,15 @@ import { OuvidoriaApiService } from '../../core/ouvidoria-api.service';
           </nav>
         </div>
         <div class="flex items-center gap-3 sm:gap-4 shrink-0">
+          <!-- Histórico do cliente (SAC + Ouvidoria) pelo CPF, de qualquer tela -->
+          <div class="flex items-center">
+            <input [(ngModel)]="cpfBusca" (keydown.enter)="buscarCliente()" type="text" inputmode="numeric" placeholder="Buscar cliente por CPF"
+                   class="hidden lg:block border border-stone-200 rounded-l-lg px-3 py-1.5 text-sm code-font w-[200px]">
+            <button (click)="buscarCliente()" title="Histórico do cliente (SAC e Ouvidoria)"
+                    class="flex items-center justify-center text-stone-500 hover:text-[#E35205] lg:bg-stone-100 lg:hover:bg-stone-200 lg:border lg:border-l-0 lg:border-stone-200 lg:rounded-r-lg lg:px-2.5 lg:py-1.5 transition-colors">
+              <svg width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></svg>
+            </button>
+          </div>
           <button (click)="tema.alternar()" class="text-stone-500 hover:text-[#E35205] transition-colors" title="Alternar modo noturno">
             @if (!tema.escuro()) {
               <svg width="19" height="19" fill="currentColor" viewBox="0 0 256 256"><path d="M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm72,88a64,64,0,1,1-64-64A64.07,64.07,0,0,1,192,128Zm-16,0a48,48,0,1,0-48,48A48.05,48.05,0,0,0,176,128ZM58.34,69.66A8,8,0,0,0,69.66,58.34l-16-16A8,8,0,0,0,42.34,53.66Zm0,116.68-16,16a8,8,0,0,0,11.32,11.32l16-16a8,8,0,0,0-11.32-11.32ZM192,72a8,8,0,0,0,5.66-2.34l16-16a8,8,0,0,0-11.32-11.32l-16,16A8,8,0,0,0,192,72Zm5.66,114.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32-11.32ZM48,128a8,8,0,0,0-8-8H16a8,8,0,0,0,0,16H40A8,8,0,0,0,48,128Zm80,80a8,8,0,0,0-8,8v24a8,8,0,0,0,16,0V216A8,8,0,0,0,128,208Zm112-88H216a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16Z"/></svg>
@@ -72,6 +83,15 @@ export class CabecalhoComponent {
   readonly sessao = inject(SessaoService);
   readonly tema = inject(TemaService);
   private router = inject(Router);
+  private cliente = inject(ClienteService);
+
+  cpfBusca = '';
+
+  /** Abre o painel do cliente; sem CPF digitado, abre só com o campo de busca. */
+  buscarCliente(): void {
+    this.cliente.abrirPainel(this.cpfBusca);
+    this.cpfBusca = '';
+  }
   private el = inject(ElementRef<HTMLElement>);
 
   /** Dropdown "SAC" aberto? */
@@ -80,7 +100,7 @@ export class CabecalhoComponent {
   readonly rotaSac = signal(false);
 
   constructor() {
-    inject(OuvidoriaApiService).acordar();   // a API da ouvidoria demora a acordar: já começa agora
+    inject(OuvidoriaService).iniciar().catch(() => {});   // já traz a ouvidoria: a aba abre com os dados prontos
     this.marcarRota();
     this.router.events.pipe(filter(e => e instanceof NavigationEnd), takeUntilDestroyed()).subscribe(() => {
       this.marcarRota();

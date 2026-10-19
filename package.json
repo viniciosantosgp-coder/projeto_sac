@@ -1,6 +1,6 @@
 {
   "name": "sac-chamados-dashboard",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "SAC Grupo Presença — Chamados SAC e Dashboard SAC (cópia reduzida do SAC 3.0)",
   "scripts": {
     "start": "ng serve",
@@ -17,6 +17,8 @@
     "@angular/router": "^19.2.0",
     "exceljs": "^4.4.0",
     "firebase": "^11.3.0",
+    "jspdf": "4.2.1",
+    "jspdf-autotable": "5.0.9",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.0"

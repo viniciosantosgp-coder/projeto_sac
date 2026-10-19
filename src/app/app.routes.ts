@@ -19,7 +19,7 @@ export const ROTAS: Routes = [
     loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent)
   },
   {
-    // tela ligada à API da ouvidoria (local: ver proxy.conf.mjs)
+    // manifestações da ouvidoria (Firestore: ouvidoria_chamados)
     path: 'ouvidoria',
     canActivate: [guardaSessao],
     loadComponent: () => import('./features/ouvidoria/ouvidoria.component').then(m => m.OuvidoriaComponent)

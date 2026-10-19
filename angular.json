@@ -33,16 +33,24 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "local": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "fileReplacements": [
+                { "replace": "src/app/core/firebase-config.ts", "with": "src/app/core/firebase-config.local.ts" }
+              ]
             }
           },
           "defaultConfiguration": "production"
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
-          "options": { "proxyConfig": "proxy.conf.mjs" },
           "configurations": {
             "production": { "buildTarget": "sac:build:production" },
-            "development": { "buildTarget": "sac:build:development" }
+            "development": { "buildTarget": "sac:build:development" },
+            "local": { "buildTarget": "sac:build:local" }
           },
           "defaultConfiguration": "development"
         }
